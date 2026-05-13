@@ -1,38 +1,11 @@
 {
   "buildCommand": "npm run build",
-  "devCommand": "npm run dev",
   "installCommand": "npm install",
   "framework": "vite",
   "rewrites": [
     {
       "source": "/(.*)",
       "destination": "/index.html"
-    }
-  ],
-  "env": [
-    {
-      "key": "VITE_SUPABASE_URL",
-      "description": "Supabase project URL"
-    },
-    {
-      "key": "VITE_SUPABASE_ANON_KEY",
-      "description": "Supabase anonymous public key"
-    },
-    {
-      "key": "VITE_SUPABASE_PUBLISHABLE_KEY",
-      "description": "Supabase publishable key"
-    },
-    {
-      "key": "VITE_BREVO_API_KEY",
-      "description": "Brevo API key for email OTP"
-    },
-    {
-      "key": "VITE_BREVO_SENDER_EMAIL",
-      "description": "Brevo sender email address"
-    },
-    {
-      "key": "VITE_BREVO_SENDER_NAME",
-      "description": "Brevo sender name"
     }
   ]
 }
