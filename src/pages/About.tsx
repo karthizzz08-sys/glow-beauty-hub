@@ -1,72 +1,197 @@
-import { Card } from "@/components/ui/card";
-import { Heart, Award, Users, Sparkles } from "lucide-react";
-import salonImg from "@/assets/gallery-3.jpg";
-
-const staff = [
-  { name: "Aisha Khan", role: "Founder & Lead Stylist", bio: "15+ years of experience in bridal & editorial makeup." },
-  { name: "Riya Mehta", role: "Senior Esthetician", bio: "Certified skincare specialist trained in advanced facial therapies." },
-  { name: "Neha Kapoor", role: "Hair Spa Expert", bio: "Hair-care artisan with a passion for healthy, lustrous hair." },
-];
+import { Heart, Shield, Users, Zap } from 'lucide-react';
+import { Button } from '../components/ui/button';
+import { useNavigate } from 'react-router-dom';
 
 const About = () => {
+  const navigate = useNavigate();
+
+  const values = [
+    {
+      icon: Heart,
+      title: 'Trust & Authenticity',
+      description: 'Every profile is verified and authentic, ensuring genuine connections.'
+    },
+    {
+      icon: Shield,
+      title: 'Privacy & Security',
+      description: 'Your personal information is protected with industry-leading encryption.'
+    },
+    {
+      icon: Users,
+      title: 'Community First',
+      description: 'We celebrate Chettiar heritage and bring the community together.'
+    },
+    {
+      icon: Zap,
+      title: 'Innovation',
+      description: 'Modern technology meets traditional values in our platform.'
+    }
+  ];
+
+  const stats = [
+    { num: '10K+', label: 'Verified Members' },
+    { num: '5K+', label: 'Successful Matches' },
+    { num: '50+', label: 'Cities Connected' },
+    { num: '100%', label: 'Secure & Safe' }
+  ];
+
   return (
-    <div>
-      <section className="gradient-soft py-20">
-        <div className="container grid md:grid-cols-2 gap-12 items-center">
-          <div>
-            <p className="uppercase tracking-[0.3em] text-xs text-primary mb-3">Our Story</p>
-            <h1 className="font-serif text-5xl md:text-6xl mb-6">A space made for you</h1>
-            <p className="text-muted-foreground leading-relaxed mb-4">
-              Founded in 2014, Glow Beauty Parlour was born from a simple belief — beauty is about feeling at home in your own skin. What started as a small studio has grown into a beloved sanctuary where artistry, comfort, and care come together.
-            </p>
-            <p className="text-muted-foreground leading-relaxed">
-              Every treatment we offer is rooted in expertise, premium ingredients, and a deep respect for your individuality.
-            </p>
+    <div className="min-h-screen">
+      {/* Hero Section */}
+      <section className="bg-gradient-to-br from-gold-50 via-white to-maroon-50 py-20">
+        <div className="container max-w-4xl mx-auto px-4 text-center">
+          <h1 className="font-serif text-5xl md:text-6xl font-bold text-maroon-900 mb-6">
+            About Chettiar Connect
+          </h1>
+          <p className="text-xl text-gray-700 mb-4 leading-relaxed">
+            Chettiar Connect is a premium matrimony platform and community directory designed exclusively for the Chettiar community.
+          </p>
+          <p className="text-lg text-gray-600 leading-relaxed">
+            We blend modern technology with traditional values, creating meaningful connections that celebrate our heritage and strengthen our bonds.
+          </p>
+        </div>
+      </section>
+
+      {/* Mission Section */}
+      <section className="py-20 container max-w-4xl mx-auto px-4">
+        <div className="bg-white rounded-lg shadow-lg p-12 border-l-4 border-gold-600">
+          <h2 className="font-serif text-3xl font-bold text-maroon-900 mb-4">Our Mission</h2>
+          <p className="text-gray-700 text-lg leading-relaxed mb-4">
+            To empower the Chettiar community by creating a safe, verified, and trusted platform where meaningful relationships are formed. We honor our traditions while embracing modern connectivity, enabling our community to thrive both personally and professionally.
+          </p>
+          <p className="text-gray-700 text-lg leading-relaxed">
+            Whether seeking a life partner or expanding your professional network, Chettiar Connect is your gateway to authentic connections.
+          </p>
+        </div>
+      </section>
+
+      {/* Values Section */}
+      <section className="py-20 bg-gradient-to-br from-maroon-50 to-gold-50">
+        <div className="container max-w-4xl mx-auto px-4">
+          <h2 className="font-serif text-4xl font-bold text-maroon-900 text-center mb-12">
+            Our Values
+          </h2>
+          <div className="grid md:grid-cols-2 gap-8">
+            {values.map((value, idx) => (
+              <div key={idx} className="bg-white rounded-lg p-8 shadow-md hover:shadow-lg transition-shadow">
+                <div className="w-12 h-12 bg-gradient-to-br from-gold-500 to-maroon-600 rounded-full flex items-center justify-center mb-4">
+                  <value.icon className="w-6 h-6 text-white" />
+                </div>
+                <h3 className="font-serif text-xl font-bold text-maroon-900 mb-2">
+                  {value.title}
+                </h3>
+                <p className="text-gray-700">{value.description}</p>
+              </div>
+            ))}
           </div>
-          <div className="relative">
-            <img src={salonImg} alt="Glow studio interior" loading="lazy" width={800} height={800} className="rounded-3xl shadow-elegant w-full" />
-            <div className="absolute -bottom-6 -left-6 bg-card p-6 rounded-2xl shadow-elegant hidden md:block">
-              <p className="font-serif text-3xl text-primary">10+</p>
-              <p className="text-xs uppercase tracking-wider text-muted-foreground">Years of glow</p>
+        </div>
+      </section>
+
+      {/* Stats Section */}
+      <section className="py-20 container max-w-4xl mx-auto px-4">
+        <div className="grid md:grid-cols-4 gap-6">
+          {stats.map((stat, idx) => (
+            <div key={idx} className="text-center">
+              <p className="font-serif text-4xl font-bold text-gold-600 mb-2">
+                {stat.num}
+              </p>
+              <p className="text-gray-700 font-semibold">{stat.label}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Why Choose Us */}
+      <section className="py-20 bg-white">
+        <div className="container max-w-4xl mx-auto px-4">
+          <h2 className="font-serif text-4xl font-bold text-maroon-900 text-center mb-12">
+            Why Choose Chettiar Connect?
+          </h2>
+          <div className="space-y-6 text-gray-700">
+            <div className="flex gap-4">
+              <div className="w-6 h-6 rounded-full bg-gold-600 flex items-center justify-center flex-shrink-0 mt-1">
+                <span className="text-white font-bold text-sm">✓</span>
+              </div>
+              <div>
+                <h3 className="font-semibold text-lg text-maroon-900 mb-2">
+                  Verified & Authentic Profiles
+                </h3>
+                <p>
+                  Every member is thoroughly verified to ensure authenticity and safety.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-4">
+              <div className="w-6 h-6 rounded-full bg-gold-600 flex items-center justify-center flex-shrink-0 mt-1">
+                <span className="text-white font-bold text-sm">✓</span>
+              </div>
+              <div>
+                <h3 className="font-semibold text-lg text-maroon-900 mb-2">
+                  Community Focused
+                </h3>
+                <p>
+                  Built exclusively for the Chettiar community, celebrating our unique heritage and traditions.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-4">
+              <div className="w-6 h-6 rounded-full bg-gold-600 flex items-center justify-center flex-shrink-0 mt-1">
+                <span className="text-white font-bold text-sm">✓</span>
+              </div>
+              <div>
+                <h3 className="font-semibold text-lg text-maroon-900 mb-2">
+                  Advanced Search & Matching
+                </h3>
+                <p>
+                  Sophisticated algorithms help you find compatible matches based on your preferences.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-4">
+              <div className="w-6 h-6 rounded-full bg-gold-600 flex items-center justify-center flex-shrink-0 mt-1">
+                <span className="text-white font-bold text-sm">✓</span>
+              </div>
+              <div>
+                <h3 className="font-semibold text-lg text-maroon-900 mb-2">
+                  Premium Support
+                </h3>
+                <p>
+                  Dedicated support team to help you navigate your journey on Chettiar Connect.
+                </p>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
-      <section className="container py-20 grid md:grid-cols-4 gap-6">
-        {[
-          { icon: Heart, num: "5K+", label: "Happy Clients" },
-          { icon: Award, num: "10+", label: "Years Experience" },
-          { icon: Users, num: "12", label: "Expert Stylists" },
-          { icon: Sparkles, num: "30+", label: "Treatments" },
-        ].map((s, i) => (
-          <Card key={i} className="p-6 text-center border-0 shadow-soft">
-            <div className="w-12 h-12 rounded-full gradient-gold flex items-center justify-center mx-auto mb-3">
-              <s.icon className="w-5 h-5 text-primary-foreground" />
-            </div>
-            <p className="font-serif text-3xl text-gradient">{s.num}</p>
-            <p className="text-sm text-muted-foreground">{s.label}</p>
-          </Card>
-        ))}
-      </section>
-
-      <section className="gradient-soft py-20">
-        <div className="container">
-          <div className="text-center mb-12 max-w-xl mx-auto">
-            <p className="uppercase tracking-[0.3em] text-xs text-primary mb-3">The Team</p>
-            <h2 className="font-serif text-4xl md:text-5xl">Meet our artists</h2>
-          </div>
-          <div className="grid md:grid-cols-3 gap-6">
-            {staff.map((s, i) => (
-              <Card key={i} className="p-8 text-center border-0 shadow-soft hover:shadow-elegant transition-all">
-                <div className="w-24 h-24 rounded-full gradient-hero mx-auto mb-4 flex items-center justify-center text-primary-foreground font-serif text-3xl">
-                  {s.name.split(" ").map(n => n[0]).join("")}
-                </div>
-                <h3 className="font-serif text-2xl mb-1">{s.name}</h3>
-                <p className="text-xs uppercase tracking-wider text-primary mb-3">{s.role}</p>
-                <p className="text-sm text-muted-foreground">{s.bio}</p>
-              </Card>
-            ))}
+      {/* CTA Section */}
+      <section className="py-20 bg-gradient-to-r from-gold-600 to-maroon-600">
+        <div className="container max-w-4xl mx-auto px-4 text-center">
+          <h2 className="font-serif text-4xl font-bold text-white mb-4">
+            Ready to Connect?
+          </h2>
+          <p className="text-gold-100 text-lg mb-8 max-w-2xl mx-auto">
+            Join thousands of verified members from the Chettiar community and find meaningful connections.
+          </p>
+          <div className="flex gap-4 justify-center flex-wrap">
+            <Button
+              onClick={() => navigate('/register')}
+              className="bg-white text-maroon-600 hover:bg-gold-50 font-semibold px-8 py-3"
+              size="lg"
+            >
+              Get Started Today
+            </Button>
+            <Button
+              onClick={() => navigate('/browse')}
+              variant="outline"
+              className="border-white text-white hover:bg-white/10 font-semibold px-8 py-3"
+              size="lg"
+            >
+              Browse Profiles
+            </Button>
           </div>
         </div>
       </section>

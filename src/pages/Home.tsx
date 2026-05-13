@@ -1,151 +1,178 @@
-import { Link } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Sparkles, Star, Heart, Award, Phone, Mail, MapPin, ArrowRight } from "lucide-react";
-import heroImg from "@/assets/hero-beauty.jpg";
-import facialImg from "@/assets/service-facial.jpg";
-import hairImg from "@/assets/service-hair.jpg";
-import bridalImg from "@/assets/service-bridal.jpg";
+import { useNavigate } from 'react-router-dom';
+import { Heart, Users, Home, Zap, Shield } from 'lucide-react';
+import { Button } from '../components/ui/button';
 
-const Home = () => {
+export default function HomePage() {
+  const navigate = useNavigate();
+
   return (
-    <div>
-      {/* Hero */}
-      <section className="relative overflow-hidden">
-        <div className="absolute inset-0">
-          <img src={heroImg} alt="Glow Beauty Parlour spa" width={1600} height={1024} className="w-full h-full object-cover" />
-          <div className="absolute inset-0 gradient-hero opacity-90" />
-        </div>
-        <div className="container relative py-24 md:py-36 text-primary-foreground">
-          <div className="max-w-2xl animate-fade-in-up">
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-background/20 backdrop-blur border border-background/30 text-xs uppercase tracking-[0.2em] mb-6">
-              <Sparkles className="w-3 h-3" /> Premium Beauty Studio
+    <div className="min-h-screen bg-white">
+      {/* Hero Section */}
+      <section className="relative bg-gradient-to-r from-gold-600 via-maroon-500 to-maroon-700 py-20">
+        <div className="container max-w-6xl mx-auto px-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+            <div className="text-white space-y-6">
+              <h1 className="text-5xl md:text-6xl font-bold leading-tight font-serif">
+                Find Your Perfect Match
+              </h1>
+              <p className="text-xl text-gold-50">
+                Welcome to Chettiar Connect - Your premier matrimony and community networking platform
+              </p>
+              <p className="text-lg text-gold-100">
+                Connecting Chettiar families across the globe with premium matrimony services and community networking.
+              </p>
+              <div className="flex gap-4 pt-4">
+                <Button
+                  onClick={() => navigate('/register')}
+                  className="bg-gold-400 hover:bg-gold-500 text-maroon-900 font-semibold px-8 py-6 text-lg"
+                >
+                  Get Started
+                </Button>
+                <Button
+                  onClick={() => navigate('/browse')}
+                  variant="outline"
+                  className="border-white text-white hover:bg-white hover:text-maroon-700 px-8 py-6 text-lg"
+                >
+                  Browse Profiles
+                </Button>
+              </div>
             </div>
-            <h1 className="font-serif text-5xl md:text-7xl font-semibold leading-[1.05] mb-6">
-              Enhancing Your <em className="not-italic text-accent">Natural Beauty</em>
-            </h1>
-            <p className="text-lg md:text-xl text-primary-foreground/90 max-w-xl mb-8 leading-relaxed">
-              A serene escape where expert care meets timeless elegance. Discover treatments crafted to make you radiate confidence.
-            </p>
-            <div className="flex flex-wrap gap-4">
-              <Button asChild size="lg" className="rounded-full bg-background text-primary hover:bg-background/90 shadow-elegant text-base px-8 h-12">
-                <Link to="/booking">Book Now <ArrowRight className="ml-2 w-4 h-4" /></Link>
+
+            <div className="relative hidden md:block">
+              <div className="w-full aspect-square bg-gold-100 rounded-full flex items-center justify-center">
+                <Heart className="w-32 h-32 text-maroon-500" strokeWidth={1.5} />
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Features Section */}
+      <section className="py-20 bg-gray-50">
+        <div className="container max-w-6xl mx-auto px-4">
+          <h2 className="text-4xl font-bold text-center mb-16 text-maroon-900 font-serif">
+            Why Choose Chettiar Connect?
+          </h2>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="bg-white p-8 rounded-lg shadow-md hover:shadow-lg transition">
+              <Shield className="w-12 h-12 text-gold-500 mb-4" />
+              <h3 className="text-2xl font-bold mb-3 text-maroon-900">100% Verified</h3>
+              <p className="text-gray-600">
+                All profiles are verified to ensure authenticity and safety in our community.
+              </p>
+            </div>
+
+            <div className="bg-white p-8 rounded-lg shadow-md hover:shadow-lg transition">
+              <Zap className="w-12 h-12 text-gold-500 mb-4" />
+              <h3 className="text-2xl font-bold mb-3 text-maroon-900">Advanced Search</h3>
+              <p className="text-gray-600">
+                Find your perfect match with advanced filters for location, profession, and interests.
+              </p>
+            </div>
+
+            <div className="bg-white p-8 rounded-lg shadow-md hover:shadow-lg transition">
+              <Users className="w-12 h-12 text-gold-500 mb-4" />
+              <h3 className="text-2xl font-bold mb-3 text-maroon-900">Community Network</h3>
+              <p className="text-gray-600">
+                Connect with Chettiar families worldwide for events, celebrations, and networking.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Main Modules Section */}
+      <section className="py-20">
+        <div className="container max-w-6xl mx-auto px-4">
+          <h2 className="text-4xl font-bold text-center mb-16 text-maroon-900 font-serif">
+            Our Modules
+          </h2>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {/* Matrimony Card */}
+            <div className="bg-gradient-to-br from-gold-50 to-white p-8 rounded-lg border-2 border-gold-200 hover:border-gold-400 transition cursor-pointer"
+              onClick={() => navigate('/browse')}>
+              <Heart className="w-16 h-16 text-maroon-500 mb-4" />
+              <h3 className="text-3xl font-bold mb-3 text-maroon-900 font-serif">Matrimony</h3>
+              <p className="text-gray-600 mb-6">
+                Premium matrimony profiles for eligible bachelors and bachelorettes. Find your life partner with our advanced matching system.
+              </p>
+              <ul className="space-y-2 mb-6 text-sm text-gray-600">
+                <li>✓ Verified profiles</li>
+                <li>✓ Horoscope upload</li>
+                <li>✓ Multiple photo gallery</li>
+                <li>✓ Interest requests & messaging</li>
+              </ul>
+              <Button className="w-full bg-maroon-600 hover:bg-maroon-700">
+                Browse Profiles
               </Button>
-              <Button asChild size="lg" variant="outline" className="rounded-full bg-transparent border-background/60 text-primary-foreground hover:bg-background/10 text-base px-8 h-12">
-                <Link to="/services">View Services</Link>
+            </div>
+
+            {/* Sangam Directory Card */}
+            <div className="bg-gradient-to-br from-maroon-50 to-white p-8 rounded-lg border-2 border-maroon-200 hover:border-maroon-400 transition cursor-pointer"
+              onClick={() => navigate('/sangam-directory')}>
+              <Users className="w-16 h-16 text-gold-600 mb-4" />
+              <h3 className="text-3xl font-bold mb-3 text-maroon-900 font-serif">Sangam Directory</h3>
+              <p className="text-gray-600 mb-6">
+                Connect with Chettiar community members worldwide. Share your contact details for weddings, events, and networking.
+              </p>
+              <ul className="space-y-2 mb-6 text-sm text-gray-600">
+                <li>✓ Community listing</li>
+                <li>✓ Search by city & district</li>
+                <li>✓ WhatsApp integration</li>
+                <li>✓ Event networking</li>
+              </ul>
+              <Button className="w-full bg-gold-600 hover:bg-gold-700">
+                View Directory
               </Button>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Why us */}
-      <section className="container py-20 grid md:grid-cols-3 gap-6">
-        {[
-          { icon: Award, title: "10+ Years Expertise", desc: "Trusted by thousands of happy clients across the city." },
-          { icon: Heart, title: "Premium Products", desc: "Only top-tier, skin-safe brands curated by our experts." },
-          { icon: Sparkles, title: "Serene Ambience", desc: "A calming retreat designed for your complete relaxation." },
-        ].map((f, i) => (
-          <Card key={i} className="p-8 border-0 shadow-soft hover:shadow-elegant transition-all hover:-translate-y-1 bg-card">
-            <div className="w-12 h-12 rounded-full gradient-gold flex items-center justify-center mb-4">
-              <f.icon className="w-5 h-5 text-primary-foreground" />
-            </div>
-            <h3 className="font-serif text-2xl mb-2">{f.title}</h3>
-            <p className="text-muted-foreground text-sm leading-relaxed">{f.desc}</p>
-          </Card>
-        ))}
-      </section>
-
-      {/* Services preview */}
-      <section className="gradient-soft py-20">
-        <div className="container">
-          <div className="text-center mb-14 max-w-2xl mx-auto">
-            <p className="uppercase tracking-[0.3em] text-xs text-primary mb-3">Signature Services</p>
-            <h2 className="font-serif text-4xl md:text-5xl mb-4">Treatments crafted with love</h2>
-            <p className="text-muted-foreground">A curated menu of beauty rituals to refresh, restore, and reveal your glow.</p>
-          </div>
-          <div className="grid md:grid-cols-3 gap-6">
-            {[
-              { img: facialImg, title: "Facial", price: "₹799", desc: "Deep-cleansing rituals for luminous, healthy skin." },
-              { img: hairImg, title: "Hair Spa", price: "₹999", desc: "Nourishing treatments to revive shine and strength." },
-              { img: bridalImg, title: "Bridal Makeup", price: "₹1499", desc: "Flawless looks for your most special day." },
-            ].map((s, i) => (
-              <Card key={i} className="overflow-hidden border-0 shadow-soft hover:shadow-elegant transition-all group">
-                <div className="aspect-[4/3] overflow-hidden">
-                  <img src={s.img} alt={s.title} loading="lazy" width={800} height={600} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
-                </div>
-                <div className="p-6">
-                  <div className="flex justify-between items-start mb-2">
-                    <h3 className="font-serif text-2xl">{s.title}</h3>
-                    <span className="text-primary font-semibold">{s.price}</span>
-                  </div>
-                  <p className="text-sm text-muted-foreground mb-4">{s.desc}</p>
-                  <Button asChild variant="ghost" className="px-0 hover:bg-transparent text-primary hover:text-primary/80">
-                    <Link to="/booking">Book Now <ArrowRight className="ml-1 w-4 h-4" /></Link>
-                  </Button>
-                </div>
-              </Card>
-            ))}
-          </div>
-          <div className="text-center mt-10">
-            <Button asChild variant="outline" size="lg" className="rounded-full">
-              <Link to="/services">View Full Menu</Link>
+      {/* Recent Profiles Section */}
+      <section className="py-20">
+        <div className="container max-w-6xl mx-auto px-4">
+          <h2 className="text-4xl font-bold text-center mb-16 text-maroon-900 font-serif">
+            Recently Joined Profiles
+          </h2>
+          <div className="text-center">
+            <p className="text-gray-600 mb-8">Discover newly registered members in our community</p>
+            <Button
+              onClick={() => navigate('/browse')}
+              className="bg-maroon-600 hover:bg-maroon-700 px-8 py-3 text-lg"
+            >
+              View All Profiles
             </Button>
           </div>
         </div>
       </section>
 
-      {/* Testimonials */}
-      <section className="container py-20">
-        <div className="text-center mb-14 max-w-2xl mx-auto">
-          <p className="uppercase tracking-[0.3em] text-xs text-primary mb-3">Kind Words</p>
-          <h2 className="font-serif text-4xl md:text-5xl mb-4">Loved by our guests</h2>
-        </div>
-        <div className="grid md:grid-cols-3 gap-6">
-          {[
-            { name: "Priya Sharma", text: "The bridal makeup was absolutely stunning. I felt like the most beautiful version of myself on my wedding day.", role: "Bride" },
-            { name: "Anjali Verma", text: "Their hair spa is heavenly. My hair has never felt so silky and healthy. I'm a regular now!", role: "Regular Client" },
-            { name: "Meera Iyer", text: "Such a relaxing experience. The staff is so warm and skilled — every visit feels like a mini vacation.", role: "Skincare Client" },
-          ].map((t, i) => (
-            <Card key={i} className="p-8 border-0 shadow-soft bg-card">
-              <div className="flex gap-1 mb-4 text-accent">
-                {Array.from({ length: 5 }).map((_, j) => <Star key={j} className="w-4 h-4 fill-current" />)}
-              </div>
-              <p className="text-foreground/80 italic leading-relaxed mb-6">"{t.text}"</p>
-              <div>
-                <p className="font-semibold">{t.name}</p>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider">{t.role}</p>
-              </div>
-            </Card>
-          ))}
-        </div>
-      </section>
-
-      {/* Contact strip */}
-      <section className="container pb-10">
-        <div className="rounded-3xl overflow-hidden gradient-hero p-10 md:p-14 text-primary-foreground grid md:grid-cols-2 gap-8 items-center shadow-elegant">
-          <div>
-            <h2 className="font-serif text-4xl md:text-5xl mb-3">Ready to glow?</h2>
-            <p className="text-primary-foreground/90 mb-6 max-w-md">Reserve your seat at our studio and let us pamper you with the care you deserve.</p>
-            <Button asChild size="lg" className="rounded-full bg-background text-primary hover:bg-background/90">
-              <Link to="/booking">Book Your Visit</Link>
+      {/* CTA Section */}
+      <section className="bg-gradient-to-r from-maroon-700 to-gold-600 text-white py-20">
+        <div className="container max-w-4xl mx-auto px-4 text-center">
+          <h2 className="text-4xl font-bold mb-6 font-serif">Ready to Find Your Match?</h2>
+          <p className="text-xl mb-10 text-gold-50">
+            Join thousands of Chettiar families already connected on our platform
+          </p>
+          <div className="flex gap-4 justify-center flex-wrap">
+            <Button
+              onClick={() => navigate('/register')}
+              className="bg-gold-400 hover:bg-gold-500 text-maroon-900 font-semibold px-8 py-3 text-lg"
+            >
+              Register Now
             </Button>
-          </div>
-          <div className="grid gap-4">
-            <div className="flex items-center gap-3 bg-background/15 backdrop-blur p-4 rounded-2xl">
-              <Phone className="w-5 h-5" /> <span>+91 98765 43210</span>
-            </div>
-            <div className="flex items-center gap-3 bg-background/15 backdrop-blur p-4 rounded-2xl">
-              <Mail className="w-5 h-5" /> <span>hello@glowbeauty.in</span>
-            </div>
-            <div className="flex items-center gap-3 bg-background/15 backdrop-blur p-4 rounded-2xl">
-              <MapPin className="w-5 h-5" /> <span>12 Rosewood Lane, Mumbai</span>
-            </div>
+            <Button
+              onClick={() => navigate('/login')}
+              variant="outline"
+              className="border-gold-200 text-gold-50 hover:bg-gold-100 px-8 py-3 text-lg"
+            >
+              Sign In
+            </Button>
           </div>
         </div>
       </section>
     </div>
   );
-};
-
-export default Home;
+}

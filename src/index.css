@@ -4,50 +4,50 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Glow Beauty Parlour — elegant rose-gold design system. All colors HSL. */
+/* Chettiar Connect — premium matrimony design system. Gold + Maroon theme */
 
 @layer base {
   :root {
-    --background: 30 40% 98%;
-    --foreground: 340 20% 15%;
+    --background: 0 0% 100%;
+    --foreground: 10 40% 30%;
 
     --card: 0 0% 100%;
-    --card-foreground: 340 20% 15%;
+    --card-foreground: 10 40% 30%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 340 20% 15%;
+    --popover-foreground: 10 40% 30%;
 
-    /* Rose gold primary */
-    --primary: 345 55% 52%;
-    --primary-foreground: 30 40% 98%;
-    --primary-glow: 345 75% 70%;
+    /* Maroon primary */
+    --primary: 10 60% 35%;
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 10 70% 55%;
 
-    /* Soft blush secondary */
-    --secondary: 20 50% 95%;
-    --secondary-foreground: 340 30% 25%;
+    /* Gold secondary */
+    --secondary: 35 70% 55%;
+    --secondary-foreground: 10 40% 25%;
 
-    --muted: 25 30% 94%;
-    --muted-foreground: 340 10% 45%;
+    --muted: 30 20% 95%;
+    --muted-foreground: 10 20% 50%;
 
-    /* Champagne gold accent */
-    --accent: 35 60% 70%;
-    --accent-foreground: 340 30% 20%;
+    /* Gold accent */
+    --accent: 35 70% 55%;
+    --accent-foreground: 10 40% 20%;
 
     --destructive: 0 75% 55%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 25 30% 90%;
-    --input: 25 30% 90%;
-    --ring: 345 55% 52%;
+    --border: 30 30% 90%;
+    --input: 30 30% 90%;
+    --ring: 35 70% 55%;
 
-    --radius: 1rem;
+    --radius: 0.5rem;
 
     /* Brand gradients & shadows */
-    --gradient-hero: linear-gradient(135deg, hsl(345 55% 52% / 0.85), hsl(20 70% 60% / 0.75));
-    --gradient-soft: linear-gradient(180deg, hsl(20 50% 97%), hsl(345 40% 95%));
-    --gradient-gold: linear-gradient(135deg, hsl(35 65% 75%), hsl(35 50% 60%));
-    --shadow-elegant: 0 20px 50px -20px hsl(345 55% 52% / 0.25);
-    --shadow-soft: 0 8px 24px -8px hsl(345 30% 50% / 0.15);
+    --gradient-hero: linear-gradient(135deg, hsl(35 70% 55%), hsl(10 60% 35%));
+    --gradient-soft: linear-gradient(180deg, hsl(35 100% 97%), hsl(10 40% 95%));
+    --gradient-gold: linear-gradient(135deg, hsl(35 70% 60%), hsl(35 60% 50%));
+    --shadow-elegant: 0 20px 50px -20px hsl(10 60% 35% / 0.25);
+    --shadow-soft: 0 8px 24px -8px hsl(10 30% 50% / 0.15);
     --shadow-glow: 0 0 60px hsl(345 75% 70% / 0.4);
 
     --transition-smooth: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
