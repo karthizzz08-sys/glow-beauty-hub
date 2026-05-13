@@ -19,8 +19,20 @@
       "description": "Supabase anonymous public key"
     },
     {
+      "key": "VITE_SUPABASE_PUBLISHABLE_KEY",
+      "description": "Supabase publishable key"
+    },
+    {
       "key": "VITE_BREVO_API_KEY",
       "description": "Brevo API key for email OTP"
+    },
+    {
+      "key": "VITE_BREVO_SENDER_EMAIL",
+      "description": "Brevo sender email address"
+    },
+    {
+      "key": "VITE_BREVO_SENDER_NAME",
+      "description": "Brevo sender name"
     }
   ]
 }
