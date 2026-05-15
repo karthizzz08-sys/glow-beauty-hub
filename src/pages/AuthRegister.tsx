@@ -1,16 +1,19 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Mail, User } from 'lucide-react';
+import { Mail, User, Lock } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { useAuth } from '../context/AuthContext';
 import { validateEmail } from '../utils/helpers';
 
 export default function AuthRegister() {
   const navigate = useNavigate();
-  const { register, loading, error } = useAuth();
+  const { register, registerWithPassword, loading, error } = useAuth();
+  const [authMethod, setAuthMethod] = useState<'otp' | 'password'>('password');
   const [formData, setFormData] = useState({
     email: '',
     fullName: '',
+    password: '',
+    confirmPassword: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -22,7 +25,7 @@ export default function AuthRegister() {
     }
   };
 
-  const validateForm = (): boolean => {
+  const validateOTPForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
     if (!formData.email || !validateEmail(formData.email)) {
@@ -37,10 +40,33 @@ export default function AuthRegister() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const validatePasswordForm = (): boolean => {
+    const newErrors: Record<string, string> = {};
+
+    if (!formData.email || !validateEmail(formData.email)) {
+      newErrors.email = 'Please enter a valid email';
+    }
+
+    if (!formData.fullName || formData.fullName.trim().length < 2) {
+      newErrors.fullName = 'Full name must be at least 2 characters';
+    }
+
+    if (!formData.password || formData.password.length < 6) {
+      newErrors.password = 'Password must be at least 6 characters';
+    }
+
+    if (formData.password !== formData.confirmPassword) {
+      newErrors.confirmPassword = 'Passwords do not match';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleOTPSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!validateForm()) return;
+    if (!validateOTPForm()) return;
 
     try {
       await register(formData.email, formData.fullName, '');
@@ -50,10 +76,23 @@ export default function AuthRegister() {
     }
   };
 
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!validatePasswordForm()) return;
+
+    try {
+      await registerWithPassword(formData.email, formData.password, formData.fullName);
+      navigate('/home');
+    } catch (err) {
+      console.error('Registration failed:', err);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gold-50 via-white to-maroon-50 py-12">
       <div className="container max-w-md mx-auto px-4">
-        <div className="bg-white rounded-lg shadow-lg p-8">
+        <div className="bg-white rounded-lg shadow-lg p-8 animate-fade-in-up">
           {/* Header */}
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold text-maroon-900 font-serif mb-2">
@@ -70,8 +109,38 @@ export default function AuthRegister() {
             </div>
           )}
 
+          {/* Auth Method Tabs */}
+          <div className="flex gap-2 mb-8 bg-gray-100 p-1 rounded-lg">
+            <button
+              onClick={() => {
+                setAuthMethod('password');
+                setErrors({});
+              }}
+              className={`flex-1 py-2 px-4 rounded-md transition-all ${
+                authMethod === 'password'
+                  ? 'bg-maroon-600 text-white shadow-md'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Password
+            </button>
+            <button
+              onClick={() => {
+                setAuthMethod('otp');
+                setErrors({});
+              }}
+              className={`flex-1 py-2 px-4 rounded-md transition-all ${
+                authMethod === 'otp'
+                  ? 'bg-maroon-600 text-white shadow-md'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              OTP
+            </button>
+          </div>
+
           {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={authMethod === 'password' ? handlePasswordSubmit : handleOTPSubmit} className="space-y-5">
             {/* Full Name */}
             <div>
               <label className="block text-sm font-semibold text-maroon-900 mb-2">
@@ -110,13 +179,54 @@ export default function AuthRegister() {
               )}
             </div>
 
+            {/* Password Field - Only for password method */}
+            {authMethod === 'password' && (
+              <>
+                <div>
+                  <label className="block text-sm font-semibold text-maroon-900 mb-2">
+                    <Lock className="w-4 h-4 inline mr-2" />
+                    Password
+                  </label>
+                  <input
+                    type="password"
+                    name="password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    placeholder="Enter a strong password"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold-500"
+                  />
+                  {errors.password && (
+                    <p className="text-red-500 text-xs mt-1">{errors.password}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-maroon-900 mb-2">
+                    <Lock className="w-4 h-4 inline mr-2" />
+                    Confirm Password
+                  </label>
+                  <input
+                    type="password"
+                    name="confirmPassword"
+                    value={formData.confirmPassword}
+                    onChange={handleChange}
+                    placeholder="Confirm your password"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold-500"
+                  />
+                  {errors.confirmPassword && (
+                    <p className="text-red-500 text-xs mt-1">{errors.confirmPassword}</p>
+                  )}
+                </div>
+              </>
+            )}
+
             {/* Submit Button */}
             <Button
               type="submit"
               disabled={loading}
               className="w-full bg-maroon-600 hover:bg-maroon-700 text-white font-semibold py-3 rounded-lg mt-6"
             >
-              {loading ? 'Processing...' : 'Continue with OTP'}
+              {loading ? 'Processing...' : authMethod === 'password' ? 'Create Account' : 'Continue with OTP'}
             </Button>
           </form>
 

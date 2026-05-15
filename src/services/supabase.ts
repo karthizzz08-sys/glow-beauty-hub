@@ -20,6 +20,14 @@ export const authService = {
     return supabase.auth.signUp({ email });
   },
 
+  async signUpWithPassword(email: string, password: string) {
+    return supabase.auth.signUp({ email, password });
+  },
+
+  async signInWithPassword(email: string, password: string) {
+    return supabase.auth.signInWithPassword({ email, password });
+  },
+
   async signInWithOTP(email: string, token: string) {
     return supabase.auth.verifyOtp({ email, token, type: 'email' });
   },
@@ -40,6 +48,10 @@ export const authService = {
 
   async resetPassword(email: string) {
     return supabase.auth.resetPasswordForEmail(email);
+  },
+
+  async updatePassword(newPassword: string) {
+    return supabase.auth.updateUser({ password: newPassword });
   },
 };
 
