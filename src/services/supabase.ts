@@ -3,54 +3,120 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-// Debug: Log environment variables
-console.log('[Supabase Config] URL:', supabaseUrl ? '✓ Loaded' : '✗ Missing');
-console.log('[Supabase Config] Anon Key:', supabaseAnonKey ? '✓ Loaded' : '✗ Missing');
-console.log('[Supabase Config] Full env:', import.meta.env);
+// Enhanced configuration logging
+const isConfigured = supabaseUrl && supabaseAnonKey;
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase configuration. Check your .env file.');
+console.log('%c[Supabase Configuration]', 'color: #0ea5e9; font-weight: bold;');
+console.log(`%cVITE_SUPABASE_URL: ${supabaseUrl ? '✓ Configured' : '✗ MISSING'}`, supabaseUrl ? 'color: #10b981;' : 'color: #ef4444;');
+console.log(`%cVITE_SUPABASE_ANON_KEY: ${supabaseAnonKey ? '✓ Configured' : '✗ MISSING'}`, supabaseAnonKey ? 'color: #10b981;' : 'color: #ef4444;');
+
+if (!isConfigured) {
+  console.warn('%c⚠️ Supabase Configuration Missing', 'color: #f59e0b; font-weight: bold; font-size: 14px;');
+  console.warn('%cTo fix this issue:', 'font-weight: bold;');
+  console.log(`
+1. LOCAL DEVELOPMENT:
+   - Copy .env.example to .env
+   - Add: VITE_SUPABASE_URL=https://your-project.supabase.co
+   - Add: VITE_SUPABASE_ANON_KEY=your-anon-key
+   - Restart: npm run dev
+
+2. VERCEL DEPLOYMENT:
+   - Go to: https://vercel.com/dashboard
+   - Select project: glow-beauty-hub
+   - Click Settings → Environment Variables
+   - Add VITE_SUPABASE_URL (value: https://your-project.supabase.co)
+   - Add VITE_SUPABASE_ANON_KEY (value: your-anon-key)
+   - Select ALL environments (Production, Preview, Development)
+   - Redeploy project
+
+3. GET CREDENTIALS:
+   - Visit: https://app.supabase.com
+   - Select your project
+   - Settings → API → Copy URL and Anon Key
+  `);
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Initialize Supabase client (or create dummy if not configured)
+let supabase: any = null;
+
+if (isConfigured) {
+  try {
+    supabase = createClient(supabaseUrl!, supabaseAnonKey!);
+    console.log('%c✓ Supabase client initialized successfully', 'color: #10b981; font-weight: bold;');
+  } catch (error) {
+    console.error('%c✗ Failed to initialize Supabase client', 'color: #ef4444; font-weight: bold;', error);
+    // Don't throw - allow app to load and show error when features are used
+  }
+} else {
+  // Create a dummy client that will show helpful errors when methods are called
+  console.log('%c⚠️ Running in degraded mode - Supabase features disabled', 'color: #f59e0b;');
+}
+
+const createErrorMessage = (methodName: string) => {
+  return new Error(
+    `Supabase ${methodName} failed: Missing environment variables.
+    
+REQUIRED ENVIRONMENT VARIABLES:
+- VITE_SUPABASE_URL
+- VITE_SUPABASE_ANON_KEY
+
+Configure these in:
+1. Local: Create .env file in project root
+2. Vercel: Settings → Environment Variables
+
+Then restart your app.`
+  );
+};
+
+// Export the configured supabase client
+export { supabase };
 
 // Auth Services
 export const authService = {
   async signUpWithEmail(email: string) {
+    if (!supabase) throw createErrorMessage('signUpWithEmail');
     return supabase.auth.signUp({ email });
   },
 
   async signUpWithPassword(email: string, password: string) {
+    if (!supabase) throw createErrorMessage('signUpWithPassword');
     return supabase.auth.signUp({ email, password });
   },
 
   async signInWithPassword(email: string, password: string) {
+    if (!supabase) throw createErrorMessage('signInWithPassword');
     return supabase.auth.signInWithPassword({ email, password });
   },
 
   async signInWithOTP(email: string, token: string) {
+    if (!supabase) throw createErrorMessage('signInWithOTP');
     return supabase.auth.verifyOtp({ email, token, type: 'email' });
   },
 
   async signOut() {
+    if (!supabase) throw createErrorMessage('signOut');
     return supabase.auth.signOut();
   },
 
   async getCurrentUser() {
+    if (!supabase) throw createErrorMessage('getCurrentUser');
     const { data: { user } } = await supabase.auth.getUser();
     return user;
   },
 
   async getSession() {
+    if (!supabase) throw createErrorMessage('getSession');
     const { data: { session } } = await supabase.auth.getSession();
     return session;
   },
 
   async resetPassword(email: string) {
+    if (!supabase) throw createErrorMessage('resetPassword');
     return supabase.auth.resetPasswordForEmail(email);
   },
 
   async updatePassword(newPassword: string) {
+    if (!supabase) throw createErrorMessage('updatePassword');
     return supabase.auth.updateUser({ password: newPassword });
   },
 };
@@ -58,6 +124,7 @@ export const authService = {
 // User Services
 export const userService = {
   async createUserProfile(userId: string, userData: any) {
+    if (!supabase) throw createErrorMessage('createUserProfile');
     return supabase
       .from('users')
       .insert([{ id: userId, ...userData }])
@@ -65,6 +132,7 @@ export const userService = {
   },
 
   async getUserProfile(userId: string) {
+    if (!supabase) throw createErrorMessage('getUserProfile');
     return supabase
       .from('users')
       .select('*')
@@ -73,6 +141,7 @@ export const userService = {
   },
 
   async updateUserProfile(userId: string, updates: any) {
+    if (!supabase) throw createErrorMessage('updateUserProfile');
     return supabase
       .from('users')
       .update(updates)
@@ -84,6 +153,7 @@ export const userService = {
 // Matrimony Profile Services
 export const matrimonyService = {
   async createProfile(profileData: any) {
+    if (!supabase) throw createErrorMessage('createProfile');
     return supabase
       .from('matrimony_profiles')
       .insert([profileData])
@@ -91,6 +161,7 @@ export const matrimonyService = {
   },
 
   async getProfile(profileId: string) {
+    if (!supabase) throw createErrorMessage('getProfile');
     return supabase
       .from('matrimony_profiles')
       .select('*')
@@ -99,6 +170,7 @@ export const matrimonyService = {
   },
 
   async getUserProfiles(userId: string) {
+    if (!supabase) throw createErrorMessage('getUserProfiles');
     return supabase
       .from('matrimony_profiles')
       .select('*')
@@ -106,6 +178,7 @@ export const matrimonyService = {
   },
 
   async updateProfile(profileId: string, updates: any) {
+    if (!supabase) throw createErrorMessage('updateProfile');
     return supabase
       .from('matrimony_profiles')
       .update(updates)
@@ -114,6 +187,7 @@ export const matrimonyService = {
   },
 
   async searchProfiles(filters: any, page = 1, pageSize = 10) {
+    if (!supabase) throw createErrorMessage('searchProfiles');
     let query = supabase
       .from('matrimony_profiles')
       .select('*', { count: 'exact' })
@@ -132,6 +206,7 @@ export const matrimonyService = {
   },
 
   async getRecentProfiles(limit = 10) {
+    if (!supabase) throw createErrorMessage('getRecentProfiles');
     return supabase
       .from('matrimony_profiles')
       .select('*')
@@ -141,18 +216,21 @@ export const matrimonyService = {
   },
 
   async recordProfileView(profileId: string, userId: string) {
+    if (!supabase) throw createErrorMessage('recordProfileView');
     return supabase
       .from('profile_views')
       .insert([{ profile_id: profileId, viewed_by_user_id: userId }]);
   },
 
   async addToShortlist(userId: string, profileId: string) {
+    if (!supabase) throw createErrorMessage('addToShortlist');
     return supabase
       .from('shortlist')
       .insert([{ user_id: userId, profile_id: profileId }]);
   },
 
   async removeFromShortlist(userId: string, profileId: string) {
+    if (!supabase) throw createErrorMessage('removeFromShortlist');
     return supabase
       .from('shortlist')
       .delete()
@@ -161,6 +239,7 @@ export const matrimonyService = {
   },
 
   async getShortlist(userId: string) {
+    if (!supabase) throw createErrorMessage('getShortlist');
     return supabase
       .from('shortlist')
       .select('matrimony_profiles(*)')
@@ -171,6 +250,7 @@ export const matrimonyService = {
 // Sangam Directory Services
 export const sangamDirectoryService = {
   async createEntry(entryData: any) {
+    if (!supabase) throw createErrorMessage('createEntry');
     return supabase
       .from('sangam_directory')
       .insert([entryData])
@@ -178,6 +258,7 @@ export const sangamDirectoryService = {
   },
 
   async getEntry(entryId: string) {
+    if (!supabase) throw createErrorMessage('getEntry');
     return supabase
       .from('sangam_directory')
       .select('*')
@@ -186,6 +267,7 @@ export const sangamDirectoryService = {
   },
 
   async getUserEntries(userId: string) {
+    if (!supabase) throw createErrorMessage('getUserEntries');
     return supabase
       .from('sangam_directory')
       .select('*')
@@ -193,6 +275,7 @@ export const sangamDirectoryService = {
   },
 
   async updateEntry(entryId: string, updates: any) {
+    if (!supabase) throw createErrorMessage('updateEntry');
     return supabase
       .from('sangam_directory')
       .update(updates)
@@ -201,6 +284,7 @@ export const sangamDirectoryService = {
   },
 
   async deleteEntry(entryId: string) {
+    if (!supabase) throw createErrorMessage('deleteEntry');
     return supabase
       .from('sangam_directory')
       .delete()
@@ -208,6 +292,7 @@ export const sangamDirectoryService = {
   },
 
   async searchEntries(filters: any, page = 1, pageSize = 10) {
+    if (!supabase) throw createErrorMessage('searchEntries');
     let query = supabase
       .from('sangam_directory')
       .select('*', { count: 'exact' });
@@ -226,6 +311,7 @@ export const sangamDirectoryService = {
   },
 
   async getAllEntries(page = 1, pageSize = 10) {
+    if (!supabase) throw createErrorMessage('getAllEntries');
     const start = (page - 1) * pageSize;
     const end = start + pageSize - 1;
 
@@ -240,6 +326,7 @@ export const sangamDirectoryService = {
 // Interest Services
 export const interestService = {
   async sendInterest(fromUserId: string, toProfileId: string) {
+    if (!supabase) throw createErrorMessage('sendInterest');
     return supabase
       .from('interests')
       .insert([{ from_user_id: fromUserId, to_profile_id: toProfileId }])
@@ -247,6 +334,7 @@ export const interestService = {
   },
 
   async getUserInterests(userId: string) {
+    if (!supabase) throw createErrorMessage('getUserInterests');
     return supabase
       .from('interests')
       .select('matrimony_profiles(*)')
@@ -255,6 +343,7 @@ export const interestService = {
   },
 
   async respondToInterest(interestId: string, status: 'accepted' | 'rejected') {
+    if (!supabase) throw createErrorMessage('respondToInterest');
     return supabase
       .from('interests')
       .update({ status })
@@ -266,6 +355,7 @@ export const interestService = {
 // Premium Membership Services
 export const premiumService = {
   async getPremiumStatus(userId: string) {
+    if (!supabase) throw createErrorMessage('getPremiumStatus');
     return supabase
       .from('premium_memberships')
       .select('*')
@@ -274,6 +364,7 @@ export const premiumService = {
   },
 
   async activatePremium(userId: string, profileId: string, planType: string) {
+    if (!supabase) throw createErrorMessage('activatePremium');
     const startDate = new Date();
     const endDate = new Date();
     endDate.setMonth(endDate.getMonth() + 1);
@@ -295,18 +386,21 @@ export const premiumService = {
 // File Upload Services
 export const fileService = {
   async uploadProfilePhoto(bucket: string, filePath: string, file: File) {
+    if (!supabase) throw createErrorMessage('uploadProfilePhoto');
     return supabase.storage
       .from(bucket)
       .upload(filePath, file, { upsert: true });
   },
 
   async deleteFile(bucket: string, filePath: string) {
+    if (!supabase) throw createErrorMessage('deleteFile');
     return supabase.storage
       .from(bucket)
       .remove([filePath]);
   },
 
   async getPublicUrl(bucket: string, filePath: string) {
+    if (!supabase) throw createErrorMessage('getPublicUrl');
     return supabase.storage
       .from(bucket)
       .getPublicUrl(filePath);
