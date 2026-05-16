@@ -101,90 +101,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error('Email not found. Please start registration again.');
       }
 
-      console.log('[Auth] Verifying OTP for email:', email);
+      console.log('[OTP Verify] Verifying OTP for email:', email);
 
-      // ✅ FIXED: Verify OTP against database (email + code + expiry)
+      // ✅ Verify OTP against database (email + code + expiry)
       const { data: otpRecord, error: otpError } = await otpService.verifyOTP(email, otp);
 
       if (otpError || !otpRecord) {
         const errorMsg = otpError instanceof Error ? otpError.message : 'Invalid OTP. Please check and try again.';
-        console.error('[Auth] OTP verification failed:', errorMsg);
+        console.error('[OTP Verify] OTP verification failed:', errorMsg);
         throw new Error(errorMsg);
       }
 
-      console.log('[Auth] OTP verified successfully');
+      console.log('[OTP Verify] OTP verified successfully');
 
-      // ✅ FIXED: Mark OTP as verified in database
+      // ✅ Mark OTP as verified in database
       await otpService.markOTPAsVerified(otpRecord.id);
-      console.log('[Auth] OTP marked as verified');
+      console.log('[OTP Verify] OTP marked as verified in database');
 
-      // ✅ FIXED: Create Supabase Auth user ONLY after OTP verification
-      // Generate a temporary password for the user
-      const tempPassword = Math.random().toString(36).slice(-8);
+      // ✅ CRITICAL: Do NOT create auth user here (prevents extra emails and rate limits)
+      // User creation will happen during profile setup (/signup)
       
-      console.log('[Auth] Creating Supabase Auth user...');
-      const { data: authData, error: signUpError } = await authService.signUpWithPassword(email, tempPassword);
-
-      if (signUpError) {
-        // Check if user already exists
-        if (signUpError.message.includes('already registered') || signUpError.message.includes('User already exists')) {
-          console.log('[Auth] User already exists in Supabase Auth, using existing account');
-          
-          // Try to get the existing user
-          try {
-            const { data: signInData } = await authService.signInWithPassword(email, tempPassword);
-            if (signInData.user) {
-              console.log('[Auth] Successfully signed in existing user:', signInData.user.id);
-            }
-          } catch (e) {
-            console.warn('[Auth] Could not sign in with temp password, continuing with profile creation');
-          }
-        } else {
-          console.error('[Auth] Signup error:', signUpError.message);
-          throw signUpError;
-        }
-      } else if (authData?.user) {
-        console.log('[Auth] New Supabase Auth user created:', authData.user.id);
-      }
-
-      const userId = authData?.user?.id;
-
-      if (userId) {
-        // Create or get user profile
-        console.log('[Auth] Checking user profile for:', userId);
-        const { data: userProfile } = await userService.getUserProfile(userId);
-
-        if (!userProfile) {
-          // Create new user profile
-          console.log('[Auth] Creating new user profile...');
-          const { data: newUser } = await userService.createUserProfile(userId, {
-            id: userId,
-            email: email,
-            verified: true,
-            user_type: 'matrimony',
-            created_at: new Date().toISOString(),
-          } as User);
-
-          if (newUser && newUser.length > 0) {
-            console.log('[Auth] User profile created successfully');
-            setUser(newUser[0] as User);
-          }
-        } else {
-          console.log('[Auth] User profile already exists');
-          setUser(userProfile as User);
-        }
-
-        setIsOTPSent(false);
-      }
-
       // Clear stored OTP from client state
       setStoredOTP(null);
       setOtpTimestamp(null);
       
-      console.log('[Auth] OTP verification flow completed successfully');
+      console.log('[OTP Verify] OTP verification complete - ready to proceed to profile setup');
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'OTP verification failed';
-      console.error('[Auth] Verification error:', errorMessage);
+      console.error('[OTP Verify] Error:', errorMessage);
       setError(errorMessage);
       throw err;
     } finally {

@@ -40,11 +40,18 @@ export default function OTPVerification() {
     }
 
     try {
+      setOtpError('');
+      
+      // ✅ Only verify OTP - no additional emails or auth triggers
       await verifyOTP(otp);
-      // Redirect to signup profile creation after successful OTP verification
+      
+      // Clear form and redirect to profile setup
+      setOtp('');
       navigate('/signup', { replace: true });
     } catch (err) {
-      setOtpError(err instanceof Error ? err.message : 'OTP verification failed');
+      const errorMsg = err instanceof Error ? err.message : 'OTP verification failed';
+      setOtpError(errorMsg);
+      console.error('[OTPVerification] Error:', errorMsg);
     }
   };
 

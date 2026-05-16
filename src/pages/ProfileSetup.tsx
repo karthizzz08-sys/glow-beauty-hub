@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ChevronRight, ChevronLeft, Check } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { useAuth } from '../context/AuthContext';
-import { matrimonyService } from '../services/supabase';
+import { matrimonyService, authService, userService } from '../services/supabase';
 import { MatrimonyProfile } from '../types';
 
 const STEPS = [
@@ -15,7 +15,7 @@ const STEPS = [
 
 export default function ProfileSetup() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, email: otpEmail } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -31,16 +31,17 @@ export default function ProfileSetup() {
     city: '',
     state: 'Tamil Nadu',
     phone_number: user?.phone_number || '',
-    email: user?.email || '',
+    email: user?.email || otpEmail || '',
     about_me: '',
     partner_expectations: '',
   });
 
   useEffect(() => {
-    if (!user) {
-      navigate('/register');
+    // Allow access if user exists OR email is set from OTP verification
+    if (!user && !otpEmail) {
+      navigate('/register', { replace: true });
     }
-  }, [user, navigate]);
+  }, [user, otpEmail, navigate]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -105,13 +106,65 @@ export default function ProfileSetup() {
       setLoading(true);
       setError('');
 
-      if (!user || !user.id) {
-        throw new Error('User ID not found');
+      const userEmail = user?.email || otpEmail;
+      
+      if (!userEmail) {
+        throw new Error('Email not found. Please start registration again.');
       }
 
-      // Prepare profile data
+      let userId = user?.id;
+
+      // ✅ If user doesn't exist yet (only email from OTP), create Supabase Auth user
+      if (!userId) {
+        console.log('[ProfileSetup] Creating Supabase Auth user for:', userEmail);
+        
+        // Generate a temporary password
+        const tempPassword = Math.random().toString(36).slice(-8);
+        
+        // Create Supabase Auth user (WITHOUT triggering email confirmation)
+        const { data: authData, error: authError } = await authService.signUpWithPassword(
+          userEmail,
+          tempPassword
+        );
+
+        if (authError) {
+          // Check if user already exists
+          if (authError.message.includes('already registered') || authError.message.includes('User already exists')) {
+            console.log('[ProfileSetup] User already exists, attempting to sign in');
+            // Try to sign in with temp password
+            const { data: signInData } = await authService.signInWithPassword(userEmail, tempPassword);
+            userId = signInData?.user?.id;
+          } else {
+            throw authError;
+          }
+        } else if (authData?.user) {
+          userId = authData.user.id;
+          console.log('[ProfileSetup] Supabase Auth user created:', userId);
+        }
+
+        if (!userId) {
+          throw new Error('Failed to create user account');
+        }
+
+        // Create user profile in users table if it doesn't exist
+        const { data: existingProfile } = await userService.getUserProfile(userId);
+        
+        if (!existingProfile) {
+          console.log('[ProfileSetup] Creating user profile:', userId);
+          await userService.createUserProfile(userId, {
+            id: userId,
+            email: userEmail,
+            verified: true,
+            user_type: 'matrimony',
+            created_at: new Date().toISOString(),
+          });
+          console.log('[ProfileSetup] User profile created successfully');
+        }
+      }
+
+      // Prepare matrimony profile data
       const profileDataToSave = {
-        user_id: user.id,
+        user_id: userId,
         full_name: profileData.full_name,
         gender: profileData.gender,
         date_of_birth: profileData.date_of_birth,
@@ -133,22 +186,23 @@ export default function ProfileSetup() {
         interest_count: 0,
       };
 
-      // Save to Supabase
+      // Save matrimony profile to Supabase
       const { data, error: saveError } = await matrimonyService.createProfile(profileDataToSave);
 
       if (saveError) {
         throw new Error(saveError.message || 'Failed to save profile');
       }
 
-      console.log('Profile created successfully:', data);
+      console.log('[ProfileSetup] Matrimony profile created successfully:', data);
 
       // Redirect to dashboard after slight delay to show success
       setTimeout(() => {
         navigate('/dashboard', { replace: true });
       }, 500);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save profile');
-      console.error('Profile save error:', err);
+      const errorMsg = err instanceof Error ? err.message : 'Failed to save profile';
+      setError(errorMsg);
+      console.error('[ProfileSetup] Error:', errorMsg);
     } finally {
       setLoading(false);
     }
