@@ -101,12 +101,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error('Email not found. Please start registration again.');
       }
 
+      console.log('[Auth] Verifying OTP for email:', email);
+
       // ✅ FIXED: Verify OTP against database (email + code + expiry)
       const { data: otpRecord, error: otpError } = await otpService.verifyOTP(email, otp);
 
       if (otpError || !otpRecord) {
-        throw new Error('Invalid OTP. Please check and try again.');
+        const errorMsg = otpError instanceof Error ? otpError.message : 'Invalid OTP. Please check and try again.';
+        console.error('[Auth] OTP verification failed:', errorMsg);
+        throw new Error(errorMsg);
       }
+
+      console.log('[Auth] OTP verified successfully');
 
       // ✅ FIXED: Mark OTP as verified in database
       await otpService.markOTPAsVerified(otpRecord.id);
@@ -154,8 +160,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Clear stored OTP from client state
       setStoredOTP(null);
       setOtpTimestamp(null);
+      
+      console.log('[Auth] User profile created/updated successfully');
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'OTP verification failed';
+      console.error('[Auth] Verification error:', errorMessage);
       setError(errorMessage);
       throw err;
     } finally {
@@ -168,12 +177,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setError(null);
       setLoading(true);
 
+      console.log('[Auth] Resending OTP to:', otpEmail);
+
       await brevoOTPService.sendOTP(otpEmail);
       setIsOTPSent(true);
+      
+      console.log('[Auth] OTP resent successfully');
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to resend OTP';
+      let errorMessage = err instanceof Error ? err.message : 'Failed to resend OTP';
+      
+      // Handle specific error cases
+      if (errorMessage.includes('429') || errorMessage.includes('rate limit')) {
+        errorMessage = 'Too many requests. Please wait 60 seconds before trying again.';
+        console.error('[Auth] Rate limit error:', err);
+      } else if (errorMessage.includes('email rate limit')) {
+        errorMessage = 'Email service rate limit exceeded. Please wait before requesting another OTP.';
+        console.error('[Auth] Email rate limit error:', err);
+      } else if (errorMessage.includes('401') || errorMessage.includes('Unauthorized')) {
+        errorMessage = 'Email service configuration error. Please contact support.';
+        console.error('[Auth] Auth config error:', err);
+      } else {
+        console.error('[Auth] Resend error:', err);
+      }
+      
       setError(errorMessage);
-      throw err;
+      throw new Error(errorMessage);
     } finally {
       setLoading(false);
     }

@@ -490,29 +490,55 @@ export const otpService = {
   async verifyOTP(email: string, otpCode: string) {
     if (!supabase) throw createErrorMessage('verifyOTP');
     
-    const { data, error } = await supabase
-      .from('otp_verifications')
-      .select('*')
-      .eq('email', email)
-      .eq('otp_code', otpCode)
-      .eq('is_verified', false)
-      .single();
-
-    if (error) {
-      throw new Error('Invalid OTP. Please check and try again.');
-    }
-
-    // Check if OTP has expired
-    if (data?.expires_at) {
-      const expiryTime = new Date(data.expires_at);
-      const now = new Date();
+    try {
+      console.log('[OTP Verify] Verifying OTP for email:', email, 'code:', otpCode);
       
-      if (now > expiryTime) {
-        throw new Error('OTP has expired. Please request a new one.');
-      }
-    }
+      // Query for matching OTP record
+      const { data, error } = await supabase
+        .from('otp_verifications')
+        .select('*')
+        .eq('email', email)
+        .eq('otp_code', otpCode)
+        .eq('is_verified', false)
+        .maybeSingle(); // Use maybeSingle to avoid 406 error when no record found
 
-    return { data, error: null };
+      if (error) {
+        console.error('[OTP Verify] Database error:', error);
+        throw new Error(`Database error: ${error.message}`);
+      }
+
+      // Check if record was found
+      if (!data) {
+        console.warn('[OTP Verify] No matching OTP found for email:', email);
+        throw new Error('Invalid OTP. Please check the code and try again.');
+      }
+
+      console.log('[OTP Verify] Found OTP record:', { id: data.id, email: data.email });
+
+      // Check if OTP has expired
+      if (data.expires_at) {
+        const expiryTime = new Date(data.expires_at);
+        const now = new Date();
+        
+        console.log('[OTP Verify] Checking expiry:', {
+          now: now.toISOString(),
+          expires_at: data.expires_at,
+          isExpired: now > expiryTime,
+        });
+        
+        if (now > expiryTime) {
+          console.warn('[OTP Verify] OTP has expired');
+          throw new Error('OTP has expired. Please request a new one.');
+        }
+      }
+
+      console.log('[OTP Verify] OTP is valid');
+      return { data, error: null };
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'OTP verification failed';
+      console.error('[OTP Verify Error]', errorMessage);
+      throw new Error(errorMessage);
+    }
   },
 
   /**

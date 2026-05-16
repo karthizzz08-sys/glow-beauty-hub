@@ -13,6 +13,7 @@ export default function OTPVerification() {
   const [otp, setOtp] = useState('');
   const [resendTimer, setResendTimer] = useState(0);
   const [otpError, setOtpError] = useState('');
+  const [isResending, setIsResending] = useState(false);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -48,12 +49,38 @@ export default function OTPVerification() {
   };
 
   const handleResendOtp = async () => {
+    if (isResending || resendTimer > 0) {
+      return; // Prevent multiple simultaneous requests
+    }
+
     try {
+      setIsResending(true);
+      setOtpError('');
+      
       await resendOTP(email);
-      setResendTimer(30);
+      
+      // Set 60-second countdown timer after successful resend
+      setResendTimer(60);
       setOtp('');
+      
+      console.log('[OTP] Resend successful, timer set to 60 seconds');
     } catch (err) {
-      console.error('Resend failed:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to resend OTP';
+      
+      // Handle specific error cases
+      if (errorMessage.includes('429') || errorMessage.includes('rate limit') || errorMessage.includes('Too Many Requests')) {
+        setOtpError('Too many requests. Please wait before requesting another OTP.');
+        setResendTimer(60); // Still set timer even on rate limit
+      } else if (errorMessage.includes('email rate limit')) {
+        setOtpError('Email rate limit exceeded. Please wait before requesting another OTP.');
+        setResendTimer(60);
+      } else {
+        setOtpError(errorMessage);
+      }
+      
+      console.error('[OTP Resend Error]', errorMessage);
+    } finally {
+      setIsResending(false);
     }
   };
 
@@ -117,16 +144,22 @@ export default function OTPVerification() {
             <p className="text-gray-600 mb-3">Didn't receive the OTP?</p>
             {resendTimer > 0 ? (
               <p className="text-gray-500">
-                Resend OTP in <span className="font-bold">{resendTimer}s</span>
+                Resend OTP in <span className="font-bold text-maroon-600">{resendTimer}s</span>
               </p>
+            ) : isResending ? (
+              <p className="text-gray-500">Sending OTP...</p>
             ) : (
               <button
                 onClick={handleResendOtp}
-                className="inline-flex items-center gap-2 text-maroon-600 font-semibold hover:text-maroon-700"
+                disabled={isResending || resendTimer > 0}
+                className="inline-flex items-center gap-2 text-maroon-600 font-semibold hover:text-maroon-700 disabled:text-gray-400 disabled:cursor-not-allowed transition"
               >
                 <RotateCcw className="w-4 h-4" />
                 Resend OTP
               </button>
+            )}
+            {resendTimer > 0 && (
+              <p className="text-xs text-gray-500 mt-2">Please wait before requesting another OTP</p>
             )}
           </div>
 
