@@ -40,7 +40,8 @@ export default function OTPVerification() {
 
     try {
       await verifyOTP(otp);
-      navigate('/matrimony/edit', { replace: true });
+      // Redirect to profile setup after successful OTP verification
+      navigate('/profile-setup', { replace: true });
     } catch (err) {
       setOtpError(err instanceof Error ? err.message : 'OTP verification failed');
     }

@@ -70,7 +70,8 @@ export default function AuthRegister() {
 
     try {
       await register(formData.email, formData.fullName, '');
-      navigate('/verify-otp', { state: { email: formData.email } });
+      // Redirect to OTP verification page
+      navigate('/verify-otp', { state: { email: formData.email, fullName: formData.fullName } });
     } catch (err) {
       console.error('Registration failed:', err);
     }

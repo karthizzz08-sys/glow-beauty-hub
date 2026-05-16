@@ -5,12 +5,15 @@ import { Toaster } from './components/ui/toaster';
 import { TooltipProvider } from './components/ui/tooltip';
 import { AuthProvider } from './context/AuthContext';
 import Layout from './components/Layout';
+import ProtectedRoute from './components/ProtectedRoute';
 
 // Pages
 import HomePage from './pages/Home';
 import AuthRegister from './pages/AuthRegister';
 import AuthLogin from './pages/AuthLogin';
 import OTPVerification from './pages/OTPVerification';
+import ProfileSetup from './pages/ProfileSetup';
+import Dashboard from './pages/Dashboard';
 import BrowseMatrimony from './pages/BrowseMatrimony';
 import SangamDirectory from './pages/SangamDirectory';
 import AdminDashboard from './pages/AdminDashboard';
@@ -34,6 +37,17 @@ const App = () => (
               <Route path="/register" element={<AuthRegister />} />
               <Route path="/login" element={<AuthLogin />} />
               <Route path="/verify-otp" element={<OTPVerification />} />
+              <Route path="/profile-setup" element={<ProfileSetup />} />
+
+              {/* User Dashboard */}
+              <Route
+                path="/dashboard"
+                element={
+                  <ProtectedRoute>
+                    <Dashboard />
+                  </ProtectedRoute>
+                }
+              />
 
               {/* Matrimony */}
               <Route path="/browse" element={<BrowseMatrimony />} />
