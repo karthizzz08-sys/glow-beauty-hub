@@ -1,25 +1,55 @@
 // Brevo Email OTP Service
 import { otpService } from './supabase';
 
-const BREVO_API_KEY = import.meta.env.VITE_BREVO_API_KEY;
-const BREVO_SENDER_EMAIL = import.meta.env.VITE_BREVO_SENDER_EMAIL;
-const BREVO_SENDER_NAME = import.meta.env.VITE_BREVO_SENDER_NAME;
+// Read environment variables with fallback support
+const BREVO_API_KEY = import.meta.env.VITE_BREVO_API_KEY || import.meta.env.BREVO_API_KEY || '';
+const BREVO_SENDER_EMAIL = import.meta.env.VITE_BREVO_SENDER_EMAIL || import.meta.env.BREVO_SENDER_EMAIL || 'noreply@chettiarconnect.com';
+const BREVO_SENDER_NAME = import.meta.env.VITE_BREVO_SENDER_NAME || import.meta.env.BREVO_SENDER_NAME || 'Chettiar Connect';
 const BREVO_API_URL = 'https://api.brevo.com/v3';
 
-// Debug: Log Brevo configuration
-console.log('[Brevo Config] API Key:', BREVO_API_KEY ? '✓ Loaded' : '✗ Missing');
-console.log('[Brevo Config] Sender Email:', BREVO_SENDER_EMAIL ? '✓ Loaded' : '✗ Missing');
-console.log('[Brevo Config] Sender Name:', BREVO_SENDER_NAME ? '✓ Loaded' : '✗ Missing');
+// Debug: Log Brevo configuration (without exposing actual keys)
+console.log('[Brevo Config] Checking environment variables...');
+console.log('[Brevo Config] API Key:', BREVO_API_KEY ? `✓ Loaded (${BREVO_API_KEY.substring(0, 5)}...)` : '✗ Missing');
+console.log('[Brevo Config] Sender Email:', BREVO_SENDER_EMAIL ? `✓ Loaded (${BREVO_SENDER_EMAIL})` : '✗ Missing');
+console.log('[Brevo Config] Sender Name:', BREVO_SENDER_NAME ? `✓ Loaded (${BREVO_SENDER_NAME})` : '✗ Missing');
 
-// Validate Brevo configuration
+// Validate Brevo configuration with detailed guidance
 if (!BREVO_API_KEY) {
-  console.error('[Brevo Error] API key not configured. Please set VITE_BREVO_API_KEY in .env.local');
+  const errorMsg = `
+[Brevo Configuration Error]
+─────────────────────────────────────────────────────────────
+❌ Brevo API key is missing!
+
+To fix this, follow these steps:
+
+1. LOCAL DEVELOPMENT:
+   • Copy .env.example to .env.local
+   • Add your Brevo API key:
+     VITE_BREVO_API_KEY=your_actual_api_key_here
+   
+2. GET YOUR BREVO API KEY:
+   • Go to https://app.brevo.com/settings/keys
+   • Copy your API Key (starts with 'xkeysib-')
+   • Paste it in .env.local
+
+3. PRODUCTION (VERCEL):
+   • Go to Vercel Dashboard → Project Settings → Environment Variables
+   • Add: VITE_BREVO_API_KEY = your_api_key
+   • Deploy again
+
+4. AFTER SETTING KEY:
+   • Restart your development server
+   • Check browser console for ✓ Loaded message
+
+For more help: https://brevo.com/help/getting-started/
+─────────────────────────────────────────────────────────────`;
+  console.error(errorMsg);
 }
 if (!BREVO_SENDER_EMAIL) {
-  console.error('[Brevo Error] Sender email not configured. Please set VITE_BREVO_SENDER_EMAIL in .env.local');
+  console.warn('[Brevo Config] Sender email not configured. Using default: noreply@chettiarconnect.com');
 }
 if (!BREVO_SENDER_NAME) {
-  console.error('[Brevo Error] Sender name not configured. Please set VITE_BREVO_SENDER_NAME in .env.local');
+  console.warn('[Brevo Config] Sender name not configured. Using default: Chettiar Connect');
 }
 
 // Generate random 6-digit OTP
@@ -30,20 +60,12 @@ function generateOTP(): string {
 // Send OTP via Brevo
 export async function sendOTPEmail(email: string, otp: string, userName?: string): Promise<void> {
   try {
-    // Validate configuration
-    if (!BREVO_API_KEY) {
-      const error = new Error('Brevo API key is missing. Check VITE_BREVO_API_KEY in .env.local');
-      console.error('[Brevo Error]', error.message);
-      throw error;
-    }
-    if (!BREVO_SENDER_EMAIL) {
-      const error = new Error('Brevo sender email is missing. Check VITE_BREVO_SENDER_EMAIL in .env.local');
-      console.error('[Brevo Error]', error.message);
-      throw error;
-    }
-    if (!BREVO_SENDER_NAME) {
-      const error = new Error('Brevo sender name is missing. Check VITE_BREVO_SENDER_NAME in .env.local');
-      console.error('[Brevo Error]', error.message);
+    // Validate API key first
+    if (!BREVO_API_KEY || BREVO_API_KEY.trim() === '') {
+      const error = new Error(
+        'Brevo API key is not configured. Please set VITE_BREVO_API_KEY in your environment variables.'
+      );
+      console.error('[Brevo Error] Configuration missing:', error.message);
       throw error;
     }
 
@@ -71,16 +93,21 @@ export async function sendOTPEmail(email: string, otp: string, userName?: string
       let errorMessage = `Brevo API Error (${response.status})`;
       
       if (response.status === 401) {
-        errorMessage = '[Brevo 401] Unauthorized - Invalid API key. Check VITE_BREVO_API_KEY in .env.local';
+        errorMessage = 'Invalid Brevo API key. Please verify your VITE_BREVO_API_KEY is correct.';
       } else if (response.status === 400) {
-        errorMessage = `[Brevo 400] Bad Request - ${responseText}`;
+        try {
+          const errorData = JSON.parse(responseText);
+          errorMessage = `Invalid request: ${errorData.message || responseText}`;
+        } catch {
+          errorMessage = `Bad Request: ${responseText}`;
+        }
       } else if (response.status === 429) {
-        errorMessage = '[Brevo 429] Too Many Requests - Rate limited. Try again later';
+        errorMessage = 'Too many requests to Brevo. Please wait a moment and try again.';
       } else if (response.status >= 500) {
-        errorMessage = `[Brevo ${response.status}] Server Error - Brevo service is unavailable`;
+        errorMessage = 'Brevo service is temporarily unavailable. Please try again later.';
       }
       
-      console.error(errorMessage, responseText);
+      console.error(`[Brevo ${response.status}]`, errorMessage);
       throw new Error(errorMessage);
     }
 
