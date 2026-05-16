@@ -418,26 +418,67 @@ export const otpService = {
   async createOTP(email: string, otpCode: string) {
     if (!supabase) throw createErrorMessage('createOTP');
     
-    // Delete any existing OTP for this email (latest OTP overwrites old ones)
-    await supabase
-      .from('otp_verifications')
-      .delete()
-      .eq('email', email);
+    try {
+      // Step 1: Delete any existing OTP for this email (latest OTP overwrites old ones)
+      console.log('[OTP Storage] Deleting old OTPs for email:', email);
+      const deleteResult = await supabase
+        .from('otp_verifications')
+        .delete()
+        .eq('email', email);
+      
+      if (deleteResult.error) {
+        console.warn('[OTP Storage] Error deleting old OTPs:', deleteResult.error);
+      } else {
+        console.log('[OTP Storage] Old OTPs deleted, count:', deleteResult.count);
+      }
 
-    // Insert new OTP with 10-minute expiry
-    const expiresAt = new Date();
-    expiresAt.setMinutes(expiresAt.getMinutes() + 10);
+      // Step 2: Calculate expiry time (10 minutes from now)
+      const expiresAt = new Date();
+      expiresAt.setMinutes(expiresAt.getMinutes() + 10);
 
-    return supabase
-      .from('otp_verifications')
-      .insert([{ 
-        email, 
+      const otpData = {
+        email,
         otp_code: otpCode,
         expires_at: expiresAt.toISOString(),
-        is_verified: false
-      }])
-      .select()
-      .single();
+        is_verified: false,
+      };
+
+      console.log('[OTP Storage] Inserting new OTP:', {
+        email,
+        otp_code: otpCode,
+        expires_at: expiresAt.toISOString(),
+      });
+
+      // Step 3: Insert new OTP
+      const { data, error } = await supabase
+        .from('otp_verifications')
+        .insert([otpData])
+        .select()
+        .single();
+
+      if (error) {
+        console.error('[OTP Storage] Insert error:', error);
+        throw error;
+      }
+
+      if (!data) {
+        console.error('[OTP Storage] No data returned from insert');
+        throw new Error('OTP insert returned no data');
+      }
+
+      console.log('[OTP Storage] Successfully stored OTP:', {
+        id: data.id,
+        email: data.email,
+        otp_code: data.otp_code,
+        expires_at: data.expires_at,
+        created_at: data.created_at,
+      });
+
+      return { data, error: null };
+    } catch (err) {
+      console.error('[OTP Storage] Exception:', err);
+      return { data: null, error: err instanceof Error ? err : new Error(String(err)) };
+    }
   },
 
   /**

@@ -1,4 +1,6 @@
 // Brevo Email OTP Service
+import { otpService } from './supabase';
+
 const BREVO_API_KEY = import.meta.env.VITE_BREVO_API_KEY;
 const BREVO_SENDER_EMAIL = import.meta.env.VITE_BREVO_SENDER_EMAIL;
 const BREVO_SENDER_NAME = import.meta.env.VITE_BREVO_SENDER_NAME;
@@ -233,29 +235,46 @@ export const brevoOTPService = {
    * Generate OTP, send via Brevo email, and store in database
    * @param email - User email
    * @param userName - User name for email template
-   * @returns The generated OTP code (for testing) or null in production
+   * @returns The generated OTP code
    */
   async sendOTP(email: string, userName?: string): Promise<string> {
-    const otp = generateOTP();
-    await sendOTPEmail(email, otp, userName);
-    
-    // ✅ NEW: Store OTP in database via Supabase
     try {
-      const { otpService } = await import('./supabase');
+      // Step 1: Generate 6-digit OTP
+      const otp = generateOTP();
+      console.log('[OTP Flow] Generated OTP:', otp, 'for email:', email);
+
+      // Step 2: Send OTP via Brevo email
+      await sendOTPEmail(email, otp, userName);
+      console.log('[OTP Flow] Email sent successfully to:', email);
+
+      // Step 3: Store OTP in Supabase database
+      console.log('[OTP Flow] Storing OTP in database...');
       const { data, error } = await otpService.createOTP(email, otp);
-      
+
+      // ✅ FIXED: Proper error checking
       if (error) {
-        console.error('[OTP Storage Error]', error);
-        throw new Error('Failed to store OTP. Please try again.');
+        console.error('[OTP Storage Error] Supabase error:', error);
+        throw new Error(`Database error: ${error.message || 'Failed to store OTP'}`);
       }
-      
-      console.log('[OTP Stored] Email:', email, 'Expires at:', data?.expires_at);
+
+      if (!data) {
+        console.error('[OTP Storage Error] No data returned from insert');
+        throw new Error('OTP was not stored in database');
+      }
+
+      console.log('[OTP Stored Successfully]', {
+        id: data.id,
+        email: data.email,
+        expires_at: data.expires_at,
+        created_at: data.created_at,
+      });
+
+      return otp;
     } catch (err) {
-      console.error('[OTP Database Error]', err);
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      console.error('[OTP Flow Error]', errorMessage);
       throw err;
     }
-    
-    return otp;
   },
 
   async sendPasswordReset(email: string, resetLink: string, userName?: string): Promise<void> {

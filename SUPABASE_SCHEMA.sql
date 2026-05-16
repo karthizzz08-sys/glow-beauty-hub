@@ -260,6 +260,14 @@ CREATE POLICY "Users can manage their shortlist" ON shortlist
 CREATE POLICY "Success stories are public" ON success_stories
   FOR SELECT USING (true);
 
+-- OTP Verifications - Allow anyone to insert and verify OTPs (signup flow)
+-- Users are not authenticated yet during signup
+CREATE POLICY "Anyone can insert OTP" ON otp_verifications
+  FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "Anyone can verify OTP" ON otp_verifications
+  FOR SELECT USING (true);
+
 -- ================================================
 -- 12. STORAGE BUCKETS SETUP
 -- ================================================
