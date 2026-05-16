@@ -505,3 +505,70 @@ export const adminService = {
       .select();
   },
 };
+
+// Community Members Services
+export const communityMembersService = {
+  async createMember(memberData: any) {
+    if (!supabase) throw createErrorMessage('createMember');
+    return supabase
+      .from('community_members')
+      .insert([memberData])
+      .select();
+  },
+
+  async getMember(memberId: string) {
+    if (!supabase) throw createErrorMessage('getMember');
+    return supabase
+      .from('community_members')
+      .select('*')
+      .eq('id', memberId)
+      .single();
+  },
+
+  async getAllMembers() {
+    if (!supabase) throw createErrorMessage('getAllMembers');
+    return supabase
+      .from('community_members')
+      .select('*')
+      .order('created_at', { ascending: false });
+  },
+
+  async searchMembers(filters: any) {
+    if (!supabase) throw createErrorMessage('searchMembers');
+    let query = supabase
+      .from('community_members')
+      .select('*');
+
+    if (filters.city) query = query.eq('city', filters.city);
+    if (filters.district) query = query.eq('district', filters.district);
+    if (filters.profession) query = query.ilike('profession', `%${filters.profession}%`);
+
+    return query.order('created_at', { ascending: false });
+  },
+
+  async filterByCity(city: string) {
+    if (!supabase) throw createErrorMessage('filterByCity');
+    return supabase
+      .from('community_members')
+      .select('*')
+      .eq('city', city)
+      .order('created_at', { ascending: false });
+  },
+
+  async filterByDistrict(district: string) {
+    if (!supabase) throw createErrorMessage('filterByDistrict');
+    return supabase
+      .from('community_members')
+      .select('*')
+      .eq('district', district)
+      .order('created_at', { ascending: false });
+  },
+
+  async deleteMember(memberId: string) {
+    if (!supabase) throw createErrorMessage('deleteMember');
+    return supabase
+      .from('community_members')
+      .delete()
+      .eq('id', memberId);
+  },
+};
