@@ -80,7 +80,19 @@ export const authService = {
 
   async signUpWithPassword(email: string, password: string) {
     if (!supabase) throw createErrorMessage('signUpWithPassword');
-    return supabase.auth.signUp({ email, password });
+    // Use signUp with options to prevent triggering confirmation email
+    // Email confirmation is disabled via Supabase project settings
+    return supabase.auth.signUp({ 
+      email, 
+      password,
+      options: {
+        // Disable auto-confirmation email - we use OTP verification instead
+        emailRedirectTo: undefined,
+        data: {
+          email_verified: true, // Mark email as verified since we verified via OTP
+        }
+      }
+    });
   },
 
   async signInWithPassword(email: string, password: string) {

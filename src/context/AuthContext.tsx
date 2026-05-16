@@ -116,41 +116,61 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // ✅ FIXED: Mark OTP as verified in database
       await otpService.markOTPAsVerified(otpRecord.id);
+      console.log('[Auth] OTP marked as verified');
 
-      // ✅ FIXED: Sign up user in Supabase Auth after OTP verification
+      // ✅ FIXED: Create Supabase Auth user ONLY after OTP verification
       // Generate a temporary password for the user
       const tempPassword = Math.random().toString(36).slice(-8);
       
+      console.log('[Auth] Creating Supabase Auth user...');
       const { data: authData, error: signUpError } = await authService.signUpWithPassword(email, tempPassword);
 
       if (signUpError) {
-        // User might already exist, try to sign in instead
-        if (signUpError.message.includes('already registered')) {
-          console.log('[Auth] User already exists, proceeding with profile');
+        // Check if user already exists
+        if (signUpError.message.includes('already registered') || signUpError.message.includes('User already exists')) {
+          console.log('[Auth] User already exists in Supabase Auth, using existing account');
+          
+          // Try to get the existing user
+          try {
+            const { data: signInData } = await authService.signInWithPassword(email, tempPassword);
+            if (signInData.user) {
+              console.log('[Auth] Successfully signed in existing user:', signInData.user.id);
+            }
+          } catch (e) {
+            console.warn('[Auth] Could not sign in with temp password, continuing with profile creation');
+          }
         } else {
+          console.error('[Auth] Signup error:', signUpError.message);
           throw signUpError;
         }
+      } else if (authData?.user) {
+        console.log('[Auth] New Supabase Auth user created:', authData.user.id);
       }
 
       const userId = authData?.user?.id;
 
       if (userId) {
         // Create or get user profile
+        console.log('[Auth] Checking user profile for:', userId);
         const { data: userProfile } = await userService.getUserProfile(userId);
 
         if (!userProfile) {
           // Create new user profile
+          console.log('[Auth] Creating new user profile...');
           const { data: newUser } = await userService.createUserProfile(userId, {
             id: userId,
             email: email,
             verified: true,
+            user_type: 'matrimony',
             created_at: new Date().toISOString(),
           } as User);
 
           if (newUser && newUser.length > 0) {
+            console.log('[Auth] User profile created successfully');
             setUser(newUser[0] as User);
           }
         } else {
+          console.log('[Auth] User profile already exists');
           setUser(userProfile as User);
         }
 
@@ -161,7 +181,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setStoredOTP(null);
       setOtpTimestamp(null);
       
-      console.log('[Auth] User profile created/updated successfully');
+      console.log('[Auth] OTP verification flow completed successfully');
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'OTP verification failed';
       console.error('[Auth] Verification error:', errorMessage);
