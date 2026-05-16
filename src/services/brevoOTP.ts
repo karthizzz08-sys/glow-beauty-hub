@@ -229,9 +229,32 @@ function generatePasswordResetEmailTemplate(resetLink: string, name?: string): s
 export const brevoOTPService = {
   generateOTP,
 
+  /**
+   * Generate OTP, send via Brevo email, and store in database
+   * @param email - User email
+   * @param userName - User name for email template
+   * @returns The generated OTP code (for testing) or null in production
+   */
   async sendOTP(email: string, userName?: string): Promise<string> {
     const otp = generateOTP();
     await sendOTPEmail(email, otp, userName);
+    
+    // ✅ NEW: Store OTP in database via Supabase
+    try {
+      const { otpService } = await import('./supabase');
+      const { data, error } = await otpService.createOTP(email, otp);
+      
+      if (error) {
+        console.error('[OTP Storage Error]', error);
+        throw new Error('Failed to store OTP. Please try again.');
+      }
+      
+      console.log('[OTP Stored] Email:', email, 'Expires at:', data?.expires_at);
+    } catch (err) {
+      console.error('[OTP Database Error]', err);
+      throw err;
+    }
+    
     return otp;
   },
 

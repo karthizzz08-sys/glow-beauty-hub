@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from '../types';
-import { authService, userService } from '../services/supabase';
+import { authService, userService, otpService } from '../services/supabase';
 import { brevoOTPService } from '../services/brevoOTP';
 
 interface AuthContextType {
@@ -98,60 +98,62 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsVerifying(true);
 
       if (!email) {
-        throw new Error('Email not found');
+        throw new Error('Email not found. Please start registration again.');
       }
 
-      // ✅ NEW: Verify OTP locally first
-      if (!storedOTP) {
-        throw new Error('OTP was not sent. Please request a new OTP.');
-      }
+      // ✅ FIXED: Verify OTP against database (email + code + expiry)
+      const { data: otpRecord, error: otpError } = await otpService.verifyOTP(email, otp);
 
-      if (otp !== storedOTP) {
+      if (otpError || !otpRecord) {
         throw new Error('Invalid OTP. Please check and try again.');
       }
 
-      // ✅ NEW: Check if OTP has expired (10 minutes = 600000 ms)
-      if (otpTimestamp) {
-        const otpAge = Date.now() - otpTimestamp;
-        const OTP_EXPIRY_MS = 10 * 60 * 1000; // 10 minutes
-        if (otpAge > OTP_EXPIRY_MS) {
-          throw new Error('OTP has expired. Please request a new OTP.');
+      // ✅ FIXED: Mark OTP as verified in database
+      await otpService.markOTPAsVerified(otpRecord.id);
+
+      // ✅ FIXED: Sign up user in Supabase Auth after OTP verification
+      // Generate a temporary password for the user
+      const tempPassword = Math.random().toString(36).slice(-8);
+      
+      const { data: authData, error: signUpError } = await authService.signUpWithPassword(email, tempPassword);
+
+      if (signUpError) {
+        // User might already exist, try to sign in instead
+        if (signUpError.message.includes('already registered')) {
+          console.log('[Auth] User already exists, proceeding with profile');
+        } else {
+          throw signUpError;
         }
       }
 
-      // ✅ NEW: Clear stored OTP after successful verification
-      setStoredOTP(null);
-      setOtpTimestamp(null);
+      const userId = authData?.user?.id;
 
-      // Verify OTP with Supabase Auth
-      const { data, error: authError } = await authService.signInWithOTP(email, otp);
-
-      if (authError) {
-        throw authError;
-      }
-
-      if (data.user) {
+      if (userId) {
         // Create or get user profile
-        const userProfile = await userService.getUserProfile(data.user.id);
+        const { data: userProfile } = await userService.getUserProfile(userId);
 
-        if (!userProfile.data) {
+        if (!userProfile) {
           // Create new user profile
-          const newUserRes = await userService.createUserProfile(data.user.id, {
-            id: data.user.id,
+          const { data: newUser } = await userService.createUserProfile(userId, {
+            id: userId,
             email: email,
             verified: true,
             created_at: new Date().toISOString(),
-          });
+          } as User);
 
-          if (newUserRes.data) {
-            setUser(newUserRes.data[0] as User);
+          if (newUser && newUser.length > 0) {
+            setUser(newUser[0] as User);
           }
         } else {
-          setUser(userProfile.data as User);
+          setUser(userProfile as User);
         }
 
         setIsOTPSent(false);
       }
+
+      // Clear stored OTP from client state
+      setStoredOTP(null);
+      setOtpTimestamp(null);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'OTP verification failed';
       setError(errorMessage);
@@ -159,7 +161,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } finally {
       setIsVerifying(false);
     }
-  };;
+  };
 
   const resendOTP = async (otpEmail: string) => {
     try {

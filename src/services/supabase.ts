@@ -409,29 +409,106 @@ export const fileService = {
 
 // OTP Services
 export const otpService = {
-  async createOTP(email: string) {
+  /**
+   * Create and store OTP in database
+   * @param email - User email
+   * @param otpCode - 6-digit OTP code
+   * @returns OTP record with id, email, code, and expiry time
+   */
+  async createOTP(email: string, otpCode: string) {
+    if (!supabase) throw createErrorMessage('createOTP');
+    
+    // Delete any existing OTP for this email (latest OTP overwrites old ones)
+    await supabase
+      .from('otp_verifications')
+      .delete()
+      .eq('email', email);
+
+    // Insert new OTP with 10-minute expiry
+    const expiresAt = new Date();
+    expiresAt.setMinutes(expiresAt.getMinutes() + 10);
+
     return supabase
       .from('otp_verifications')
-      .insert([{ email }])
-      .select();
+      .insert([{ 
+        email, 
+        otp_code: otpCode,
+        expires_at: expiresAt.toISOString(),
+        is_verified: false
+      }])
+      .select()
+      .single();
   },
 
+  /**
+   * Verify OTP by matching email and code, and checking expiry
+   * @param email - User email
+   * @param otpCode - 6-digit OTP code to verify
+   * @returns OTP record if valid, or error if invalid/expired
+   */
   async verifyOTP(email: string, otpCode: string) {
-    return supabase
+    if (!supabase) throw createErrorMessage('verifyOTP');
+    
+    const { data, error } = await supabase
       .from('otp_verifications')
       .select('*')
       .eq('email', email)
       .eq('otp_code', otpCode)
       .eq('is_verified', false)
       .single();
+
+    if (error) {
+      throw new Error('Invalid OTP. Please check and try again.');
+    }
+
+    // Check if OTP has expired
+    if (data?.expires_at) {
+      const expiryTime = new Date(data.expires_at);
+      const now = new Date();
+      
+      if (now > expiryTime) {
+        throw new Error('OTP has expired. Please request a new one.');
+      }
+    }
+
+    return { data, error: null };
   },
 
+  /**
+   * Mark OTP as verified after successful verification
+   * @param otpId - OTP record ID
+   * @returns Updated OTP record
+   */
   async markOTPAsVerified(otpId: string) {
+    if (!supabase) throw createErrorMessage('markOTPAsVerified');
+    
     return supabase
       .from('otp_verifications')
-      .update({ is_verified: true, verified_at: new Date().toISOString() })
+      .update({ 
+        is_verified: true, 
+        verified_at: new Date().toISOString() 
+      })
       .eq('id', otpId)
-      .select();
+      .select()
+      .single();
+  },
+
+  /**
+   * Get the latest valid OTP for an email
+   * @param email - User email
+   * @returns Latest unverified OTP record
+   */
+  async getLatestOTP(email: string) {
+    if (!supabase) throw createErrorMessage('getLatestOTP');
+    
+    return supabase
+      .from('otp_verifications')
+      .select('*')
+      .eq('email', email)
+      .eq('is_verified', false)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
   },
 };
 
