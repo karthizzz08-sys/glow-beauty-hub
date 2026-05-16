@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { ChevronRight, ChevronLeft, Check } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { useAuth } from '../context/AuthContext';
-import { matrimonyService, authService, userService } from '../services/supabase';
-import { MatrimonyProfile } from '../types';
+import { matrimonyService, userService } from '../services/supabase';
+import { MatrimonyProfile, User } from '../types';
 
 const STEPS = [
   { id: 1, title: 'Basic Details', description: 'Name, Gender, DOB' },
@@ -107,62 +107,36 @@ export default function ProfileSetup() {
       setError('');
 
       const userEmail = user?.email || otpEmail;
-      
+
       if (!userEmail) {
         throw new Error('Email not found. Please start registration again.');
       }
 
-      let userId = user?.id;
+      // ✅ Generate UUID for new user (no Supabase Auth required)
+      const userId = crypto.randomUUID();
+      console.log('[ProfileSetup] Creating user with ID:', userId);
 
-      // ✅ If user doesn't exist yet (only email from OTP), create Supabase Auth user
-      if (!userId) {
-        console.log('[ProfileSetup] Creating Supabase Auth user for:', userEmail);
-        
-        // Generate a temporary password
-        const tempPassword = Math.random().toString(36).slice(-8);
-        
-        // Create Supabase Auth user (WITHOUT triggering email confirmation)
-        const { data: authData, error: authError } = await authService.signUpWithPassword(
-          userEmail,
-          tempPassword
-        );
+      // ✅ Create user record in users table
+      const userData: User = {
+        id: userId,
+        email: userEmail,
+        full_name: profileData.full_name || '',
+        phone_number: profileData.phone_number || '',
+        verified: true,
+        user_type: 'matrimony',
+        created_at: new Date().toISOString(),
+      };
 
-        if (authError) {
-          // Check if user already exists
-          if (authError.message.includes('already registered') || authError.message.includes('User already exists')) {
-            console.log('[ProfileSetup] User already exists, attempting to sign in');
-            // Try to sign in with temp password
-            const { data: signInData } = await authService.signInWithPassword(userEmail, tempPassword);
-            userId = signInData?.user?.id;
-          } else {
-            throw authError;
-          }
-        } else if (authData?.user) {
-          userId = authData.user.id;
-          console.log('[ProfileSetup] Supabase Auth user created:', userId);
-        }
+      console.log('[ProfileSetup] Creating user record:', userData);
+      const { data: userCreated, error: userError } = await userService.createUserProfile(userId, userData);
 
-        if (!userId) {
-          throw new Error('Failed to create user account');
-        }
-
-        // Create user profile in users table if it doesn't exist
-        const { data: existingProfile } = await userService.getUserProfile(userId);
-        
-        if (!existingProfile) {
-          console.log('[ProfileSetup] Creating user profile:', userId);
-          await userService.createUserProfile(userId, {
-            id: userId,
-            email: userEmail,
-            verified: true,
-            user_type: 'matrimony',
-            created_at: new Date().toISOString(),
-          });
-          console.log('[ProfileSetup] User profile created successfully');
-        }
+      if (userError) {
+        throw new Error(userError.message || 'Failed to create user');
       }
 
-      // Prepare matrimony profile data
+      console.log('[ProfileSetup] User record created successfully');
+
+      // ✅ Prepare matrimony profile data
       const profileDataToSave = {
         user_id: userId,
         full_name: profileData.full_name,
@@ -186,16 +160,21 @@ export default function ProfileSetup() {
         interest_count: 0,
       };
 
-      // Save matrimony profile to Supabase
-      const { data, error: saveError } = await matrimonyService.createProfile(profileDataToSave);
+      // ✅ Save matrimony profile
+      console.log('[ProfileSetup] Saving matrimony profile');
+      const { data: profileCreated, error: profileError } = await matrimonyService.createProfile(profileDataToSave);
 
-      if (saveError) {
-        throw new Error(saveError.message || 'Failed to save profile');
+      if (profileError) {
+        throw new Error(profileError.message || 'Failed to save profile');
       }
 
-      console.log('[ProfileSetup] Matrimony profile created successfully:', data);
+      console.log('[ProfileSetup] Matrimony profile created successfully');
 
-      // Redirect to dashboard after slight delay to show success
+      // ✅ Set user in context
+      const { setUser } = useAuth();
+      setUser(userData);
+
+      // ✅ Redirect to dashboard
       setTimeout(() => {
         navigate('/dashboard', { replace: true });
       }, 500);
@@ -383,13 +362,20 @@ export default function ProfileSetup() {
   // Step 4: Review
   const Step4 = () => (
     <div className="space-y-6">
-      <div className="bg-green-50 border border-green-200 rounded-lg p-6 text-center">
-        <Check className="w-12 h-12 text-green-600 mx-auto mb-3" />
-        <h3 className="text-lg font-semibold text-green-900 mb-2">Profile Complete!</h3>
-        <p className="text-green-700">
-          Your profile has been created. Click "Complete Setup" to go to your dashboard.
-        </p>
-      </div>
+      {error ? (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+          <h3 className="text-lg font-semibold text-red-900 mb-2">Error</h3>
+          <p className="text-red-700 text-sm">{error}</p>
+        </div>
+      ) : (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-6 text-center">
+          <Check className="w-12 h-12 text-green-600 mx-auto mb-3" />
+          <h3 className="text-lg font-semibold text-green-900 mb-2">Profile Complete!</h3>
+          <p className="text-green-700">
+            Your profile has been created. Click "Complete Setup" to go to your dashboard.
+          </p>
+        </div>
+      )}
 
       <div className="bg-gray-50 rounded-lg p-6 space-y-3">
         <div className="flex justify-between">
@@ -471,8 +457,8 @@ export default function ProfileSetup() {
           </h2>
           <p className="text-gray-600 mb-8">{STEPS[currentStep - 1].description}</p>
 
-          {/* Error Message */}
-          {error && (
+          {/* Error Message - only show on steps 1-3 */}
+          {error && currentStep !== STEPS.length && (
             <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
               <p className="text-red-700 text-sm">{error}</p>
             </div>

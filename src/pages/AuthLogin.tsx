@@ -1,15 +1,14 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Mail, Lock } from 'lucide-react';
+import { Mail } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { useAuth } from '../context/AuthContext';
 import { validateEmail } from '../utils/helpers';
 
 export default function AuthLogin() {
   const navigate = useNavigate();
-  const { sendOTP, loginWithPassword, loading, error } = useAuth();
-  const [authMethod, setAuthMethod] = useState<'otp' | 'password'>('otp');
-  const [formData, setFormData] = useState({ email: '', password: '' });
+  const { resendOTP, loading, error } = useAuth();
+  const [formData, setFormData] = useState({ email: '' });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -29,35 +28,12 @@ export default function AuthLogin() {
     }
 
     try {
-      await sendOTP(formData.email, 'User');
+      // Send OTP to email
+      await resendOTP(formData.email);
+      // Redirect to OTP verification
       navigate('/verify-otp', { state: { email: formData.email } });
     } catch (err) {
-      console.error('Login failed:', err);
-    }
-  };
-
-  const handlePasswordSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const newErrors: Record<string, string> = {};
-
-    if (!formData.email || !validateEmail(formData.email)) {
-      newErrors.email = 'Please enter a valid email';
-    }
-
-    if (!formData.password || formData.password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
-    }
-
-    if (Object.keys(newErrors).length > 0) {
-      setFormErrors(newErrors);
-      return;
-    }
-
-    try {
-      await loginWithPassword(formData.email, formData.password);
-      navigate('/home');
-    } catch (err) {
-      console.error('Login failed:', err);
+      console.error('[AuthLogin] OTP request failed:', err);
     }
   };
 
@@ -81,38 +57,15 @@ export default function AuthLogin() {
             </div>
           )}
 
-          {/* Auth Method Tabs */}
-          <div className="flex gap-2 mb-8 bg-gray-100 p-1 rounded-lg">
-            <button
-              onClick={() => {
-                setAuthMethod('otp');
-                setFormErrors({});
-              }}
-              className={`flex-1 py-2 px-4 rounded-md transition-all ${
-                authMethod === 'otp'
-                  ? 'bg-maroon-600 text-white shadow-md'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              OTP
-            </button>
-            <button
-              onClick={() => {
-                setAuthMethod('password');
-                setFormErrors({});
-              }}
-              className={`flex-1 py-2 px-4 rounded-md transition-all ${
-                authMethod === 'password'
-                  ? 'bg-maroon-600 text-white shadow-md'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              Password
-            </button>
+          {/* Auth Method Info */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+            <p className="text-blue-700 text-sm">
+              🔐 Sign in with OTP for secure access. We'll send you a 6-digit code to verify your email.
+            </p>
           </div>
 
           {/* Form */}
-          <form onSubmit={authMethod === 'otp' ? handleOTPSubmit : handlePasswordSubmit} className="space-y-5">
+          <form onSubmit={handleOTPSubmit} className="space-y-5">
             {/* Email */}
             <div>
               <label className="block text-sm font-semibold text-maroon-900 mb-2">
@@ -132,45 +85,15 @@ export default function AuthLogin() {
               )}
             </div>
 
-            {/* Password Field - Only show for password method */}
-            {authMethod === 'password' && (
-              <div>
-                <label className="block text-sm font-semibold text-maroon-900 mb-2">
-                  <Lock className="w-4 h-4 inline mr-2" />
-                  Password
-                </label>
-                <input
-                  type="password"
-                  name="password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  placeholder="Enter your password"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold-500"
-                />
-                {formErrors.password && (
-                  <p className="text-red-500 text-xs mt-1">{formErrors.password}</p>
-                )}
-              </div>
-            )}
-
             {/* Submit Button */}
             <Button
               type="submit"
               disabled={loading}
               className="w-full bg-maroon-600 hover:bg-maroon-700 text-white font-semibold py-3 rounded-lg mt-6"
             >
-              {loading ? 'Signing in...' : authMethod === 'otp' ? 'Send OTP' : 'Sign In'}
+              {loading ? 'Sending OTP...' : 'Send OTP'}
             </Button>
           </form>
-
-          {/* Info Message */}
-          {authMethod === 'otp' && (
-            <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg text-center">
-              <p className="text-blue-700 text-sm">
-                We'll send you a 6-digit OTP to verify your email address.
-              </p>
-            </div>
-          )}
 
           {/* Divider */}
           <div className="relative my-6">

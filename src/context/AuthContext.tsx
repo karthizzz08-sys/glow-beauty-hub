@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState } from 'react';
 import { User } from '../types';
-import { authService, userService, otpService } from '../services/supabase';
+import { userService, otpService } from '../services/supabase';
 import { brevoOTPService } from '../services/brevoOTP';
 
 interface AuthContextType {
@@ -11,46 +11,25 @@ interface AuthContextType {
   isOTPSent: boolean;
   isVerifying: boolean;
   register: (email: string, fullName: string, phone: string) => Promise<void>;
-  registerWithPassword: (email: string, password: string, fullName: string) => Promise<void>;
-  sendOTP: (email: string, fullName: string) => Promise<void>;
   verifyOTP: (otp: string) => Promise<void>;
-  loginWithPassword: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   resendOTP: (email: string) => Promise<void>;
+  setUser: (user: User | null) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUserState] = useState<User | null>(null);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [email, setEmail] = useState<string | null>(null);
   const [isOTPSent, setIsOTPSent] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
-  const [storedOTP, setStoredOTP] = useState<string | null>(null);
-  const [otpTimestamp, setOtpTimestamp] = useState<number | null>(null);
 
-  // Check if user is logged in on mount
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const session = await authService.getSession();
-        if (session?.user) {
-          const userProfile = await userService.getUserProfile(session.user.id);
-          if (userProfile.data) {
-            setUser(userProfile.data as User);
-          }
-        }
-      } catch (err) {
-        console.error('Auth check failed:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    checkAuth();
-  }, []);
+  const setUser = (newUser: User | null) => {
+    setUserState(newUser);
+  };
 
   const register = async (registerEmail: string, fullName: string, phone: string) => {
     try {
@@ -58,33 +37,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setLoading(true);
       setEmail(registerEmail);
 
-      // Send OTP for verification and store it
-      const generatedOTP = await brevoOTPService.sendOTP(registerEmail, fullName);
-      setStoredOTP(generatedOTP);
-      setOtpTimestamp(Date.now());
+      console.log('[Auth] Starting OTP registration for:', registerEmail);
+
+      // Send OTP via Brevo (no Supabase Auth)
+      await brevoOTPService.sendOTP(registerEmail, fullName);
       setIsOTPSent(true);
+
+      console.log('[Auth] OTP sent successfully, ready for verification');
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Registration failed';
-      setError(errorMessage);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const sendOTP = async (otpEmail: string, fullName: string) => {
-    try {
-      setError(null);
-      setLoading(true);
-      setEmail(otpEmail);
-
-      // Send OTP for verification and store it
-      const generatedOTP = await brevoOTPService.sendOTP(otpEmail, fullName);
-      setStoredOTP(generatedOTP);
-      setOtpTimestamp(Date.now());
-      setIsOTPSent(true);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to send OTP';
+      console.error('[Auth] Registration error:', errorMessage);
       setError(errorMessage);
       throw err;
     } finally {
@@ -101,34 +63,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error('Email not found. Please start registration again.');
       }
 
-      console.log('[OTP Verify] Verifying OTP for email:', email);
+      console.log('[Auth] Verifying OTP for email:', email);
 
       // ✅ Verify OTP against database (email + code + expiry)
       const { data: otpRecord, error: otpError } = await otpService.verifyOTP(email, otp);
 
       if (otpError || !otpRecord) {
         const errorMsg = otpError instanceof Error ? otpError.message : 'Invalid OTP. Please check and try again.';
-        console.error('[OTP Verify] OTP verification failed:', errorMsg);
+        console.error('[Auth] OTP verification failed:', errorMsg);
         throw new Error(errorMsg);
       }
 
-      console.log('[OTP Verify] OTP verified successfully');
+      console.log('[Auth] OTP verified successfully');
 
       // ✅ Mark OTP as verified in database
       await otpService.markOTPAsVerified(otpRecord.id);
-      console.log('[OTP Verify] OTP marked as verified in database');
+      console.log('[Auth] OTP marked as verified in database');
 
-      // ✅ CRITICAL: Do NOT create auth user here (prevents extra emails and rate limits)
-      // User creation will happen during profile setup (/signup)
-      
-      // Clear stored OTP from client state
-      setStoredOTP(null);
-      setOtpTimestamp(null);
-      
-      console.log('[OTP Verify] OTP verification complete - ready to proceed to profile setup');
+      // ✅ Clear stored OTP (user creation will happen in ProfileSetup)
+      console.log('[Auth] OTP verification complete - ready to proceed to profile setup');
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'OTP verification failed';
-      console.error('[OTP Verify] Error:', errorMessage);
+      console.error('[Auth] Verification error:', errorMessage);
       setError(errorMessage);
       throw err;
     } finally {
@@ -143,13 +99,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       console.log('[Auth] Resending OTP to:', otpEmail);
 
+      // Send OTP via Brevo
       await brevoOTPService.sendOTP(otpEmail);
       setIsOTPSent(true);
-      
+
       console.log('[Auth] OTP resent successfully');
     } catch (err) {
       let errorMessage = err instanceof Error ? err.message : 'Failed to resend OTP';
-      
+
       // Handle specific error cases
       if (errorMessage.includes('429') || errorMessage.includes('rate limit')) {
         errorMessage = 'Too many requests. Please wait 60 seconds before trying again.';
@@ -159,11 +116,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.error('[Auth] Email rate limit error:', err);
       } else if (errorMessage.includes('401') || errorMessage.includes('Unauthorized')) {
         errorMessage = 'Email service configuration error. Please contact support.';
-        console.error('[Auth] Auth config error:', err);
+        console.error('[Auth] Email config error:', err);
       } else {
         console.error('[Auth] Resend error:', err);
       }
-      
+
       setError(errorMessage);
       throw new Error(errorMessage);
     } finally {
@@ -173,78 +130,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = async () => {
     try {
-      await authService.signOut();
-      setUser(null);
+      console.log('[Auth] Logging out');
+      setUserState(null);
       setEmail(null);
       setIsOTPSent(false);
-    } catch (err) {
-      console.error('Logout failed:', err);
-    }
-  };
-
-  const registerWithPassword = async (registerEmail: string, password: string, fullName: string) => {
-    try {
       setError(null);
-      setLoading(true);
-      setEmail(registerEmail);
-
-      // Sign up with password
-      const { data, error: authError } = await authService.signUpWithPassword(registerEmail, password);
-
-      if (authError) {
-        throw authError;
-      }
-
-      if (data.user) {
-        // Create user profile
-        const newUserRes = await userService.createUserProfile(data.user.id, {
-          id: data.user.id,
-          email: registerEmail,
-          full_name: fullName,
-          verified: true,
-          created_at: new Date().toISOString(),
-        });
-
-        if (newUserRes.data) {
-          setUser(newUserRes.data[0] as User);
-        }
-      }
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Registration failed';
-      setError(errorMessage);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loginWithPassword = async (loginEmail: string, password: string) => {
-    try {
-      setError(null);
-      setLoading(true);
-      setEmail(loginEmail);
-
-      // Sign in with password
-      const { data, error: authError } = await authService.signInWithPassword(loginEmail, password);
-
-      if (authError) {
-        throw authError;
-      }
-
-      if (data.user) {
-        // Get user profile
-        const userProfile = await userService.getUserProfile(data.user.id);
-
-        if (userProfile.data) {
-          setUser(userProfile.data as User);
-        }
-      }
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Login failed';
-      setError(errorMessage);
-      throw err;
-    } finally {
-      setLoading(false);
+      console.error('[Auth] Logout error:', err);
     }
   };
 
@@ -258,12 +150,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isOTPSent,
         isVerifying,
         register,
-        registerWithPassword,
-        sendOTP,
         verifyOTP,
-        loginWithPassword,
         logout,
         resendOTP,
+        setUser,
       }}
     >
       {children}
