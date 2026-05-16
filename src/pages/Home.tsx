@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { Heart, Users, Sparkles, Zap, Shield } from 'lucide-react';
 import { Button } from '../components/ui/button';
+import heroCoupleImage from '../assets/hero-couple.jpg';
 
 export default function HomePage() {
   const navigate = useNavigate();
@@ -13,7 +14,7 @@ export default function HomePage() {
         <div 
           className="absolute inset-0 bg-cover bg-center bg-no-repeat"
           style={{
-            backgroundImage: 'url(/src/assets/hero-couple.jpg)',
+            backgroundImage: `url(${heroCoupleImage})`,
           }}
         />
         
