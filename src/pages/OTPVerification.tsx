@@ -40,8 +40,8 @@ export default function OTPVerification() {
 
     try {
       await verifyOTP(otp);
-      // Redirect to profile setup after successful OTP verification
-      navigate('/profile-setup', { replace: true });
+      // Redirect to signup profile creation after successful OTP verification
+      navigate('/signup', { replace: true });
     } catch (err) {
       setOtpError(err instanceof Error ? err.message : 'OTP verification failed');
     }

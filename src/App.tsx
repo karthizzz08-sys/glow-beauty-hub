@@ -37,7 +37,7 @@ const App = () => (
               <Route path="/register" element={<AuthRegister />} />
               <Route path="/login" element={<AuthLogin />} />
               <Route path="/verify-otp" element={<OTPVerification />} />
-              <Route path="/profile-setup" element={<ProfileSetup />} />
+              <Route path="/signup" element={<ProfileSetup />} />
 
               {/* User Dashboard */}
               <Route
