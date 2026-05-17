@@ -7,13 +7,35 @@ import { useAuth } from '../context/AuthContext';
 export default function OTPVerification() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { verifyOTP, resendOTP, isVerifying, loading, error } = useAuth();
+  const { verifyOTP, resendOTP, isVerifying, loading, error, email: ctxEmail, setEmail } = useAuth();
 
-  const email = (location.state as { email?: string })?.email || '';
+  let initialEmail = (location.state as { email?: string })?.email || '';
+  
+  // ✅ Restore email from sessionStorage if available
+  if (!initialEmail) {
+    initialEmail = sessionStorage.getItem('verified_email') || ctxEmail || '';
+  }
+  
+  const [email, setLocalEmail] = useState(initialEmail);
   const [otp, setOtp] = useState('');
   const [resendTimer, setResendTimer] = useState(0);
   const [otpError, setOtpError] = useState('');
   const [isResending, setIsResending] = useState(false);
+
+  // ✅ Sync email to AuthContext if available
+  useEffect(() => {
+    if (email && email !== ctxEmail) {
+      setEmail(email);
+    }
+  }, [email, ctxEmail, setEmail]);
+
+  // ✅ Redirect if no email is available
+  useEffect(() => {
+    if (!email) {
+      console.warn('[OTPVerification] No email found, redirecting to register');
+      navigate('/register', { replace: true });
+    }
+  }, [email, navigate]);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;

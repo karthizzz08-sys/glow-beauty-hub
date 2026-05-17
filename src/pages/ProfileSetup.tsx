@@ -180,6 +180,10 @@ export default function ProfileSetup() {
       const { setUser } = useAuth();
       setUser(userData);
 
+      // ✅ Clear OTP verification state from sessionStorage
+      sessionStorage.removeItem('verified_email');
+      sessionStorage.removeItem('otp_verified');
+
       // ✅ Redirect to dashboard
       setTimeout(() => {
         navigate('/dashboard', { replace: true });

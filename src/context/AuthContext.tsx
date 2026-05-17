@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from '../types';
-import { userService, otpService } from '../services/supabase';
+import { userService, otpService, supabase, authService } from '../services/supabase';
 import { brevoOTPService } from '../services/brevoOTP';
 
 interface AuthContextType {
@@ -15,13 +15,14 @@ interface AuthContextType {
   logout: () => Promise<void>;
   resendOTP: (email: string) => Promise<void>;
   setUser: (user: User | null) => void;
+  setEmail: (email: string | null) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUserState] = useState<User | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [email, setEmail] = useState<string | null>(null);
   const [isOTPSent, setIsOTPSent] = useState(false);
@@ -29,7 +30,73 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const setUser = (newUser: User | null) => {
     setUserState(newUser);
+    if (newUser) {
+      sessionStorage.setItem('auth_user', JSON.stringify(newUser));
+    } else {
+      sessionStorage.removeItem('auth_user');
+    }
   };
+
+  // ✅ Initialize session on app load
+  useEffect(() => {
+    const initializeSession = async () => {
+      try {
+        setLoading(true);
+
+        // Check for existing Supabase session
+        const session = await authService.getSession();
+        
+        if (session?.user) {
+          console.log('[Auth] Session restored from Supabase:', session.user.id);
+          const userProfile = await userService.getUserProfile(session.user.id);
+          if (userProfile.data) {
+            setUserState(userProfile.data);
+            setEmail(session.user.email || null);
+          }
+        } else {
+          // Check for stored auth state in sessionStorage
+          const storedEmail = sessionStorage.getItem('verified_email');
+          const storedOtpStatus = sessionStorage.getItem('otp_verified');
+          
+          if (storedEmail && storedOtpStatus === 'true') {
+            console.log('[Auth] Restored OTP verification state from storage:', storedEmail);
+            setEmail(storedEmail);
+            setIsOTPSent(false); // OTP already verified
+          }
+        }
+      } catch (err) {
+        console.error('[Auth] Session initialization error:', err);
+        // Don't show error to user on initialization
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initializeSession();
+
+    // Subscribe to auth changes
+    if (supabase) {
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+        console.log('[Auth] Auth state changed:', event, session?.user?.id);
+        
+        if (session?.user) {
+          try {
+            const userProfile = await userService.getUserProfile(session.user.id);
+            if (userProfile.data) {
+              setUserState(userProfile.data);
+              setEmail(session.user.email || null);
+            }
+          } catch (err) {
+            console.error('[Auth] Error fetching user profile:', err);
+          }
+        } else {
+          setUserState(null);
+        }
+      });
+
+      return () => subscription?.unsubscribe();
+    }
+  }, []);
 
   const register = async (registerEmail: string, fullName: string, phone: string) => {
     try {
@@ -79,6 +146,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // ✅ Mark OTP as verified in database
       await otpService.markOTPAsVerified(otpRecord.id);
       console.log('[Auth] OTP marked as verified in database');
+
+      // ✅ Store verified email in sessionStorage for persistence across navigation
+      sessionStorage.setItem('verified_email', email);
+      sessionStorage.setItem('otp_verified', 'true');
+      console.log('[Auth] OTP verification state stored in sessionStorage');
 
       // ✅ Clear stored OTP (user creation will happen in ProfileSetup)
       console.log('[Auth] OTP verification complete - ready to proceed to profile setup');
@@ -131,10 +203,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async () => {
     try {
       console.log('[Auth] Logging out');
+      
+      // Sign out from Supabase Auth if session exists
+      await authService.signOut();
+      
+      // Clear state
       setUserState(null);
       setEmail(null);
       setIsOTPSent(false);
       setError(null);
+      
+      // Clear session storage
+      sessionStorage.removeItem('verified_email');
+      sessionStorage.removeItem('otp_verified');
+      sessionStorage.removeItem('auth_user');
+      
+      console.log('[Auth] Logout complete');
     } catch (err) {
       console.error('[Auth] Logout error:', err);
     }
@@ -154,6 +238,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         logout,
         resendOTP,
         setUser,
+        setEmail,
       }}
     >
       {children}
