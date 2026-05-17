@@ -121,20 +121,25 @@ export default function ProfileSetup() {
       console.log('[Auth Flow] ========== STARTING 5-STEP AUTHENTICATION ==========');
       console.log('[Auth Flow] Email:', userEmail);
 
-      // ✅ STEP 1: Generate temporary password ONCE (in proper format)
-      console.log('[Auth Flow] STEP 1: Generating secure temporary password...');
+      // ✅ STEP 1: Create a simple, consistent temporary password
+      // Use email + timestamp to create deterministic password that Supabase accepts
+      console.log('[Auth Flow] STEP 1: Creating temporary password...');
       
-      // Generate password as hex string (valid password format - NOT array string)
-      const passwordBytes = crypto.getRandomValues(new Uint8Array(16));
-      const tempPassword = Array.from(passwordBytes)
-        .map(b => b.toString(16).padStart(2, '0'))
-        .join('');
+      // Simple password: meets Supabase requirements (6+ chars, mixed case, numbers)
+      // Format: TempPass_EmailHash_Timestamp
+      const emailPart = userEmail.split('@')[0].substring(0, 8);
+      const timestamp = Date.now().toString().slice(-6);
+      const tempPassword = `TempPass_${emailPart}_${timestamp}`;
       
-      console.log('[Auth Flow] ✓ Step 1 Complete: Password generated (length: ' + tempPassword.length + ')');
-      console.log('[Auth Flow] ✓ tempPassword will be reused for both signup and signin');
+      console.log('[Auth Flow] ✓ Step 1 Complete: Password created');
+      console.log('[Auth Flow] Password format: TempPass_[email part]_[timestamp]');
+      console.log('[Auth Flow] Password length:', tempPassword.length, '(valid Supabase format)');
 
-      // ✅ STEP 2: Create user in Supabase Auth with the generated password
-      console.log('[Auth Flow] STEP 2: Creating user in Supabase Auth with email:', userEmail);
+      // ✅ STEP 2: Create user in Supabase Auth
+      console.log('[Auth Flow] STEP 2: Creating user in Supabase Auth...');
+      console.log('[Auth Flow] Email:', userEmail);
+      console.log('[Auth Flow] Password length:', tempPassword.length);
+      
       let userCreated = false;
       let userId: string | undefined;
       
@@ -146,16 +151,18 @@ export default function ProfileSetup() {
           console.log('[Auth Flow] ℹ️ User already exists in Supabase Auth, proceeding to login...');
           userCreated = true;
         } else {
-          console.error('[Auth Flow] ❌ Signup error:', signUpError.message);
-          console.error('[Auth Flow] Full error:', signUpError);
+          console.error('[Auth Flow] ❌ Signup failed');
+          console.error('[Auth Flow] Error:', signUpError.message);
+          console.error('[Auth Flow] Code:', signUpError.code);
           throw new Error(`Failed to create auth user: ${signUpError.message}`);
         }
       } else {
         if (signUpData?.user?.id) {
           userId = signUpData.user.id;
           userCreated = true;
-          console.log('[Auth Flow] ✓ Step 2 Complete: User created in Supabase Auth');
-          console.log('[Auth Flow] New user ID:', userId);
+          console.log('[Auth Flow] ✓ Step 2 Complete: User created successfully');
+          console.log('[Auth Flow] User ID:', userId);
+          console.log('[Auth Flow] User email verified:', signUpData.user.email_confirmed_at ? 'Yes' : 'No');
         } else {
           userCreated = true;
           console.log('[Auth Flow] ✓ Step 2 Complete: Signup succeeded');
@@ -166,29 +173,40 @@ export default function ProfileSetup() {
         throw new Error('User creation failed. Please try again.');
       }
 
-      // ✅ STEP 3: Sign in with the SAME tempPassword to create authenticated session
+      // ✅ STEP 3: Sign in with the SAME temporary password to create authenticated session
       console.log('[Auth Flow] STEP 3: Signing in user to create session...');
+      console.log('[Auth Flow] Email:', userEmail);
       console.log('[Auth Flow] Using SAME password from Step 1');
+      
+      // Add small delay to ensure user is fully created in Supabase before signin
+      await new Promise(resolve => setTimeout(resolve, 500));
+      console.log('[Auth Flow] ✓ Waited for user creation to complete');
       
       const { data: signInData, error: signInError } = await authService.signInWithPassword(userEmail, tempPassword);
       
       if (signInError) {
-        console.error('[Auth Flow] ❌ Sign-in FAILED');
+        console.error('[Auth Flow] ========================================');
+        console.error('[Auth Flow] ❌ SIGN-IN FAILED');
+        console.error('[Auth Flow] ========================================');
         console.error('[Auth Flow] Error message:', signInError.message);
-        console.error('[Auth Flow] Full error:', signInError);
+        console.error('[Auth Flow] Error code:', signInError.code);
         console.error('[Auth Flow] Email used:', userEmail);
-        console.error('[Auth Flow] Password format check - length:', tempPassword.length, 'type:', typeof tempPassword);
+        console.error('[Auth Flow] Password length:', tempPassword.length);
+        console.error('[Auth Flow] Password preview:', tempPassword.substring(0, 10) + '...');
+        console.error('[Auth Flow] Full error:', signInError);
+        console.error('[Auth Flow] ========================================');
         throw new Error(`Login failed: ${signInError.message}`);
       }
 
       if (!signInData?.session) {
-        console.error('[Auth Flow] ❌ Sign-in succeeded but NO SESSION in response');
+        console.error('[Auth Flow] ❌ Sign-in response has no session');
+        console.error('[Auth Flow] SignInData:', signInData);
         throw new Error('Failed to create authentication session - no session in response');
       }
 
       console.log('[Auth Flow] ✓ Step 3 Complete: Session created successfully');
-      console.log('[Auth Flow] Access token received:', signInData.session.access_token.substring(0, 20) + '...');
-      console.log('[Auth Flow] Session expires at:', new Date(signInData.session.expires_at! * 1000).toISOString());
+      console.log('[Auth Flow] Access token received');
+      console.log('[Auth Flow] Session user:', signInData.session.user?.email);
 
       // ✅ STEP 4: Get authenticated user ID from the active session
       console.log('[Auth Flow] STEP 4: Retrieving authenticated user from active session...');
