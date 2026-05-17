@@ -254,6 +254,72 @@ function generatePasswordResetEmailTemplate(resetLink: string, name?: string): s
   `;
 }
 
+// Send OTP via SMS using Brevo
+export async function sendOTPSMS(phoneNumber: string, otp: string): Promise<void> {
+  try {
+    // Validate API key first
+    if (!BREVO_API_KEY || BREVO_API_KEY.trim() === '') {
+      const error = new Error(
+        'Brevo API key is not configured. Please set VITE_BREVO_API_KEY in your environment variables.'
+      );
+      console.error('[Brevo SMS Error] Configuration missing:', error.message);
+      throw error;
+    }
+
+    // Validate phone number
+    if (!phoneNumber || !/^\d{10}$/.test(phoneNumber.replace(/\D/g, ''))) {
+      throw new Error('Invalid phone number. Must be 10 digits.');
+    }
+
+    console.log('[Brevo SMS] Sending OTP to phone:', phoneNumber);
+
+    const response = await fetch(`${BREVO_API_URL}/transactionalSMS/sms`, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'api-key': BREVO_API_KEY,
+      },
+      body: JSON.stringify({
+        sender: 'ChettiarConnect', // Brevo requires sender name (11 chars or less for Indian numbers)
+        recipient: phoneNumber,
+        content: `Your Chettiar Connect OTP is: ${otp}\n\nValid for 10 minutes. Do not share this code.`,
+        type: 'transactional',
+      }),
+    });
+
+    // Handle HTTP errors
+    if (!response.ok) {
+      const responseText = await response.text();
+      let errorMessage = `Brevo SMS API Error (${response.status})`;
+      
+      if (response.status === 401) {
+        errorMessage = 'Invalid Brevo API key. Please verify your VITE_BREVO_API_KEY is correct.';
+      } else if (response.status === 400) {
+        try {
+          const errorData = JSON.parse(responseText);
+          errorMessage = `Invalid SMS request: ${errorData.message || responseText}`;
+        } catch {
+          errorMessage = `Bad Request: ${responseText}`;
+        }
+      } else if (response.status === 429) {
+        errorMessage = 'Too many SMS requests. Please wait a moment and try again.';
+      } else if (response.status >= 500) {
+        errorMessage = 'Brevo SMS service is temporarily unavailable. Please try again later.';
+      }
+      
+      console.error(`[Brevo SMS ${response.status}]`, errorMessage);
+      throw new Error(errorMessage);
+    }
+
+    console.log('[Brevo SMS Success] OTP sent successfully to', phoneNumber);
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('[Brevo SMS Error] Failed to send OTP:', errorMessage);
+    throw error;
+  }
+}
+
 // Service to manage OTP
 export const brevoOTPService = {
   generateOTP,
@@ -306,6 +372,50 @@ export const brevoOTPService = {
 
   async sendPasswordReset(email: string, resetLink: string, userName?: string): Promise<void> {
     await sendPasswordResetEmail(email, resetLink, userName);
+  },
+
+  /**
+   * Generate OTP, send via Brevo SMS, and store in database
+   * @param phoneNumber - User phone number (10 digits)
+   * @returns The generated OTP code
+   */
+  async sendOTPViaSMS(phoneNumber: string): Promise<string> {
+    try {
+      // Step 1: Generate 6-digit OTP
+      const otp = generateOTP();
+      console.log('[SMS OTP Flow] Generated OTP:', otp, 'for phone:', phoneNumber);
+
+      // Step 2: Send OTP via Brevo SMS
+      await sendOTPSMS(phoneNumber, otp);
+      console.log('[SMS OTP Flow] SMS sent successfully to:', phoneNumber);
+
+      // Step 3: Store OTP in Supabase database (using phone as identifier for community members)
+      console.log('[SMS OTP Flow] Storing OTP in database...');
+      const { data, error } = await otpService.createOTP(phoneNumber, otp);
+
+      if (error) {
+        console.error('[SMS OTP Storage Error] Supabase error:', error);
+        throw new Error(`Database error: ${error.message || 'Failed to store OTP'}`);
+      }
+
+      if (!data) {
+        console.error('[SMS OTP Storage Error] No data returned from insert');
+        throw new Error('OTP was not stored in database');
+      }
+
+      console.log('[SMS OTP Stored Successfully]', {
+        id: data.id,
+        phone: phoneNumber,
+        expires_at: data.expires_at,
+        created_at: data.created_at,
+      });
+
+      return otp;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      console.error('[SMS OTP Flow Error]', errorMessage);
+      throw err;
+    }
   },
 
   validateOTP(otp: string): boolean {

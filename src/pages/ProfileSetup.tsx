@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ChevronRight, ChevronLeft, Check } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { useAuth } from '../context/AuthContext';
-import { matrimonyService, userService } from '../services/supabase';
+import { matrimonyService, userService, supabase } from '../services/supabase';
 import { MatrimonyProfile, User } from '../types';
 
 const STEPS = [
@@ -112,9 +112,15 @@ export default function ProfileSetup() {
         throw new Error('Email not found. Please start registration again.');
       }
 
-      // ✅ Generate UUID for new user (no Supabase Auth required)
-      const userId = crypto.randomUUID();
-      console.log('[ProfileSetup] Creating user with ID:', userId);
+      // ✅ Get authenticated user ID from Supabase Auth
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      
+      if (!authUser?.id) {
+        throw new Error('User not authenticated. Please log in again.');
+      }
+
+      const userId = authUser.id;
+      console.log('[ProfileSetup] Creating user with authenticated ID:', userId);
 
       // ✅ Create user record in users table
       const userData: User = {
