@@ -130,33 +130,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error('Email not found. Please start registration again.');
       }
 
-      console.log('[Auth] Verifying OTP for email:', email);
+      console.log('[OTP Verify] Step 1: Verifying OTP for email:', email);
 
-      // ✅ Verify OTP against database (email + code + expiry)
+      // ✅ Verify OTP against database
       const { data: otpRecord, error: otpError } = await otpService.verifyOTP(email, otp);
 
       if (otpError || !otpRecord) {
         const errorMsg = otpError instanceof Error ? otpError.message : 'Invalid OTP. Please check and try again.';
-        console.error('[Auth] OTP verification failed:', errorMsg);
+        console.error('[OTP Verify] OTP verification failed:', errorMsg);
         throw new Error(errorMsg);
       }
 
-      console.log('[Auth] OTP verified successfully');
+      console.log('[OTP Verify] Step 2: OTP verified successfully');
 
       // ✅ Mark OTP as verified in database
       await otpService.markOTPAsVerified(otpRecord.id);
-      console.log('[Auth] OTP marked as verified in database');
+      console.log('[OTP Verify] Step 3: OTP marked as verified in database');
 
-      // ✅ Store verified email in sessionStorage for persistence across navigation
+      // ✅ IMPORTANT: Persist email + OTP status for profile setup
       sessionStorage.setItem('verified_email', email);
       sessionStorage.setItem('otp_verified', 'true');
-      console.log('[Auth] OTP verification state stored in sessionStorage');
+      console.log('[OTP Verify] Step 4: Email & OTP status stored in session');
 
-      // ✅ Clear stored OTP (user creation will happen in ProfileSetup)
-      console.log('[Auth] OTP verification complete - ready to proceed to profile setup');
+      // ✅ Update context email to ensure consistency
+      setEmail(email);
+      console.log('[OTP Verify] Step 5: Context email updated');
+
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'OTP verification failed';
-      console.error('[Auth] Verification error:', errorMessage);
+      console.error('[OTP Verify] Error:', errorMessage);
       setError(errorMessage);
       throw err;
     } finally {
