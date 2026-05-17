@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ChevronRight, ChevronLeft, Check } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { useAuth } from '../context/AuthContext';
-import { matrimonyService, userService, supabase } from '../services/supabase';
+import { matrimonyService, userService, supabase, authService } from '../services/supabase';
 import { MatrimonyProfile, User } from '../types';
 
 const STEPS = [
@@ -112,17 +112,53 @@ export default function ProfileSetup() {
         throw new Error('Email not found. Please start registration again.');
       }
 
-      // ✅ Get authenticated user ID from Supabase Auth
+      console.log('[ProfileSetup] Starting user creation and authentication flow');
+
+      // ✅ Step 1: Generate temporary password for Supabase auth
+      const tempPassword = crypto.getRandomValues(new Uint8Array(16)).toString();
+      console.log('[ProfileSetup] Step 1: Generated temporary password');
+
+      // ✅ Step 2: Create user in Supabase Auth
+      console.log('[ProfileSetup] Step 2: Creating user in Supabase Auth');
+      const { data: signUpData, error: signUpError } = await authService.signUpWithPassword(userEmail, tempPassword);
+      
+      if (signUpError) {
+        // User already exists - that's OK, continue to login
+        console.log('[ProfileSetup] User already exists in auth, continuing to login:', signUpError.message);
+      } else if (!signUpData.user?.id) {
+        throw new Error('Failed to create auth user - no user ID returned');
+      } else {
+        console.log('[ProfileSetup] User created in Supabase Auth:', signUpData.user.id);
+      }
+
+      // ✅ Step 3: Sign in the user with password to create session
+      console.log('[ProfileSetup] Step 3: Signing in user to create session');
+      const { data: signInData, error: signInError } = await authService.signInWithPassword(userEmail, tempPassword);
+      
+      if (signInError) {
+        console.error('[ProfileSetup] Sign in error:', signInError);
+        throw new Error(`Login failed: ${signInError.message}`);
+      }
+
+      if (!signInData.session) {
+        throw new Error('Failed to create session - no session returned');
+      }
+
+      console.log('[ProfileSetup] Step 3: Session created successfully');
+
+      // ✅ Step 4: Get authenticated user from session
+      console.log('[ProfileSetup] Step 4: Getting authenticated user');
       const { data: { user: authUser } } = await supabase.auth.getUser();
       
       if (!authUser?.id) {
-        throw new Error('User not authenticated. Please log in again.');
+        throw new Error('Failed to get authenticated user ID - please try again');
       }
 
       const userId = authUser.id;
-      console.log('[ProfileSetup] Creating user with authenticated ID:', userId);
+      console.log('[ProfileSetup] Step 4: Authenticated user ID:', userId);
 
-      // ✅ Create user record in users table
+      // ✅ Step 5: Create user record in users table (with RLS protection)
+      console.log('[ProfileSetup] Step 5: Creating user record in users table');
       const userData: User = {
         id: userId,
         email: userEmail,
@@ -137,10 +173,10 @@ export default function ProfileSetup() {
       const { data: userCreated, error: userError } = await userService.createUserProfile(userId, userData);
 
       if (userError) {
-        throw new Error(userError.message || 'Failed to create user');
+        throw new Error(userError.message || 'Failed to create user profile');
       }
 
-      console.log('[ProfileSetup] User record created successfully');
+      console.log('[ProfileSetup] Step 5: User record created successfully');
 
       // ✅ Prepare matrimony profile data
       const profileDataToSave = {
