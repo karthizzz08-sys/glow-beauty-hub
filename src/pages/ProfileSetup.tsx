@@ -121,65 +121,98 @@ export default function ProfileSetup() {
       console.log('[Auth Flow] ========== STARTING 5-STEP AUTHENTICATION ==========');
       console.log('[Auth Flow] Email:', userEmail);
 
-      // ✅ STEP 1: Generate temporary password
+      // ✅ STEP 1: Generate temporary password ONCE (in proper format)
       console.log('[Auth Flow] STEP 1: Generating secure temporary password...');
-      const tempPassword = crypto.getRandomValues(new Uint8Array(16)).toString();
-      console.log('[Auth Flow] ✓ Step 1 Complete: Password generated');
+      
+      // Generate password as hex string (valid password format - NOT array string)
+      const passwordBytes = crypto.getRandomValues(new Uint8Array(16));
+      const tempPassword = Array.from(passwordBytes)
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
+      
+      console.log('[Auth Flow] ✓ Step 1 Complete: Password generated (length: ' + tempPassword.length + ')');
+      console.log('[Auth Flow] ✓ tempPassword will be reused for both signup and signin');
 
-      // ✅ STEP 2: Create user in Supabase Auth
-      console.log('[Auth Flow] STEP 2: Creating user in Supabase Auth...');
+      // ✅ STEP 2: Create user in Supabase Auth with the generated password
+      console.log('[Auth Flow] STEP 2: Creating user in Supabase Auth with email:', userEmail);
+      let userCreated = false;
       let userId: string | undefined;
       
       const { data: signUpData, error: signUpError } = await authService.signUpWithPassword(userEmail, tempPassword);
       
-      if (signUpError?.message?.includes('already registered')) {
-        console.log('[Auth Flow] ℹ️ User already exists in Supabase, continuing to login...');
-      } else if (signUpError) {
-        console.error('[Auth Flow] Signup error:', signUpError.message);
-        throw new Error(`Failed to create auth user: ${signUpError.message}`);
-      } else if (signUpData?.user?.id) {
-        userId = signUpData.user.id;
-        console.log('[Auth Flow] ✓ Step 2 Complete: User created with ID:', userId);
+      if (signUpError) {
+        // Check if user already exists
+        if (signUpError.message?.includes('already registered') || signUpError.message?.includes('User already exists')) {
+          console.log('[Auth Flow] ℹ️ User already exists in Supabase Auth, proceeding to login...');
+          userCreated = true;
+        } else {
+          console.error('[Auth Flow] ❌ Signup error:', signUpError.message);
+          console.error('[Auth Flow] Full error:', signUpError);
+          throw new Error(`Failed to create auth user: ${signUpError.message}`);
+        }
       } else {
-        console.log('[Auth Flow] ✓ Step 2 Complete: Signup response received');
+        if (signUpData?.user?.id) {
+          userId = signUpData.user.id;
+          userCreated = true;
+          console.log('[Auth Flow] ✓ Step 2 Complete: User created in Supabase Auth');
+          console.log('[Auth Flow] New user ID:', userId);
+        } else {
+          userCreated = true;
+          console.log('[Auth Flow] ✓ Step 2 Complete: Signup succeeded');
+        }
       }
 
-      // ✅ STEP 3: Sign in to create authenticated session
+      if (!userCreated) {
+        throw new Error('User creation failed. Please try again.');
+      }
+
+      // ✅ STEP 3: Sign in with the SAME tempPassword to create authenticated session
       console.log('[Auth Flow] STEP 3: Signing in user to create session...');
+      console.log('[Auth Flow] Using SAME password from Step 1');
+      
       const { data: signInData, error: signInError } = await authService.signInWithPassword(userEmail, tempPassword);
       
       if (signInError) {
-        console.error('[Auth Flow] Sign-in error:', signInError.message);
+        console.error('[Auth Flow] ❌ Sign-in FAILED');
+        console.error('[Auth Flow] Error message:', signInError.message);
+        console.error('[Auth Flow] Full error:', signInError);
+        console.error('[Auth Flow] Email used:', userEmail);
+        console.error('[Auth Flow] Password format check - length:', tempPassword.length, 'type:', typeof tempPassword);
         throw new Error(`Login failed: ${signInError.message}`);
       }
 
       if (!signInData?.session) {
-        console.error('[Auth Flow] No session in signin response');
-        throw new Error('Failed to create authentication session');
+        console.error('[Auth Flow] ❌ Sign-in succeeded but NO SESSION in response');
+        throw new Error('Failed to create authentication session - no session in response');
       }
 
-      console.log('[Auth Flow] ✓ Step 3 Complete: Session created, JWT token:', signInData.session.access_token?.slice(0, 20) + '...');
+      console.log('[Auth Flow] ✓ Step 3 Complete: Session created successfully');
+      console.log('[Auth Flow] Access token received:', signInData.session.access_token.substring(0, 20) + '...');
+      console.log('[Auth Flow] Session expires at:', new Date(signInData.session.expires_at! * 1000).toISOString());
 
-      // ✅ STEP 4: Get authenticated user ID from the session
-      console.log('[Auth Flow] STEP 4: Retrieving authenticated user from session...');
+      // ✅ STEP 4: Get authenticated user ID from the active session
+      console.log('[Auth Flow] STEP 4: Retrieving authenticated user from active session...');
       const { data: { user: authUser }, error: getUserError } = await supabase.auth.getUser();
       
       if (getUserError) {
-        console.error('[Auth Flow] getUser error:', getUserError.message);
+        console.error('[Auth Flow] ❌ getUser error:', getUserError.message);
         throw new Error(`Failed to get authenticated user: ${getUserError.message}`);
       }
 
       if (!authUser?.id) {
-        console.error('[Auth Flow] No user ID in authenticated session');
-        throw new Error('Failed to retrieve authenticated user ID');
+        console.error('[Auth Flow] ❌ No user ID returned from getUser()');
+        throw new Error('Failed to retrieve authenticated user ID from session');
       }
 
       userId = authUser.id;
-      console.log('[Auth Flow] ✓ Step 4 Complete: Authenticated user ID:', userId);
-      console.log('[Auth Flow] ✓ auth.uid() is now:', userId);
+      console.log('[Auth Flow] ✓ Step 4 Complete: Authenticated user retrieved');
+      console.log('[Auth Flow] Authenticated user ID:', userId);
+      console.log('[Auth Flow] ✓✓✓ auth.uid() is NOW ACTIVE:', userId);
 
-      // ✅ STEP 5: Create user record in RLS-protected users table
-      console.log('[Auth Flow] STEP 5: Creating user record in users table (RLS-protected)...');
+      // ✅ STEP 5: Create user record in RLS-protected users table (now auth.uid() is active)
+      console.log('[Auth Flow] STEP 5: Inserting user record into RLS-protected users table...');
+      console.log('[Auth Flow] RLS will check: auth.uid() (' + userId + ') = id (' + userId + ')');
+      
       const userData: User = {
         id: userId,
         email: userEmail,
@@ -190,18 +223,25 @@ export default function ProfileSetup() {
         created_at: new Date().toISOString(),
       };
 
-      console.log('[Auth Flow] User data to insert:', userData);
-      const { data: userCreated, error: userError } = await userService.createUserProfile(userId, userData);
+      console.log('[Auth Flow] User data being inserted:', {
+        id: userData.id,
+        email: userData.email,
+        verified: userData.verified,
+      });
+
+      const { data: userCreatedResult, error: userError } = await userService.createUserProfile(userId, userData);
 
       if (userError) {
-        console.error('[Auth Flow] User insert error:', userError.message);
-        throw new Error(`Failed to create user profile: ${userError.message}`);
+        console.error('[Auth Flow] ❌ User insert FAILED');
+        console.error('[Auth Flow] Error message:', userError.message);
+        console.error('[Auth Flow] This likely means auth.uid() does not match the user ID being inserted');
+        throw new Error(`Failed to create user profile (RLS): ${userError.message}`);
       }
 
       console.log('[Auth Flow] ✓ Step 5 Complete: User record inserted successfully');
 
       // ✅ Create matrimony profile
-      console.log('[Auth Flow] Creating matrimony profile...');
+      console.log('[Auth Flow] STEP 6: Creating matrimony profile...');
       const profileDataToSave = {
         user_id: userId,
         full_name: profileData.full_name,
@@ -228,25 +268,32 @@ export default function ProfileSetup() {
       const { data: profileCreated, error: profileError } = await matrimonyService.createProfile(profileDataToSave);
 
       if (profileError) {
-        console.error('[Auth Flow] Profile creation error:', profileError.message);
-        throw new Error(`Failed to save profile: ${profileError.message}`);
+        console.error('[Auth Flow] ❌ Matrimony profile creation error:', profileError.message);
+        throw new Error(`Failed to save matrimony profile: ${profileError.message}`);
       }
 
-      console.log('[Auth Flow] ✓ Matrimony profile created successfully');
+      console.log('[Auth Flow] ✓ Step 6 Complete: Matrimony profile created');
 
       // ✅ Update context with authenticated user
-      console.log('[Auth Flow] Updating auth context...');
+      console.log('[Auth Flow] STEP 7: Updating authentication context...');
       setUser(userData);
-      console.log('[Auth Flow] ✓ User set in context');
+      console.log('[Auth Flow] ✓ Step 7 Complete: User set in context');
 
       // ✅ Clean up OTP verification state
-      console.log('[Auth Flow] Cleaning up OTP verification state...');
+      console.log('[Auth Flow] STEP 8: Cleaning up temporary state...');
       sessionStorage.removeItem('verified_email');
       sessionStorage.removeItem('otp_verified');
-      console.log('[Auth Flow] ✓ Session storage cleaned');
+      console.log('[Auth Flow] ✓ Step 8 Complete: Session storage cleaned');
 
-      console.log('[Auth Flow] ========== ✅ ALL 5 STEPS COMPLETE! ==========');
-      console.log('[Auth Flow] User authenticated and data saved. Redirecting to dashboard...');
+      console.log('[Auth Flow] ========== ✅ ALL 8 STEPS COMPLETE! USER FULLY AUTHENTICATED ==========');
+      console.log('[Auth Flow] Summary:');
+      console.log('[Auth Flow]  ✓ Email:', userEmail);
+      console.log('[Auth Flow]  ✓ User ID:', userId);
+      console.log('[Auth Flow]  ✓ Session: Active');
+      console.log('[Auth Flow]  ✓ User record: Created');
+      console.log('[Auth Flow]  ✓ Matrimony profile: Created');
+      console.log('[Auth Flow]  ✓ Auth context: Updated');
+      console.log('[Auth Flow] Redirecting to dashboard...');
 
       // ✅ Redirect to dashboard
       setTimeout(() => {
@@ -254,7 +301,9 @@ export default function ProfileSetup() {
       }, 500);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to complete registration';
-      console.error('[Auth Flow] ❌ ERROR:', errorMsg);
+      console.error('[Auth Flow] ========== ❌ REGISTRATION FAILED ==========');
+      console.error('[Auth Flow] Error:', errorMsg);
+      console.error('[Auth Flow] Full error object:', err);
       setError(errorMsg);
     } finally {
       setLoading(false);
