@@ -113,8 +113,8 @@ export default function SangamDirectory() {
       setOtpSending(true);
       setOtpError('');
       
-      // ✅ Use Supabase OTP auth instead of Brevo
-      const { error } = await supabase.auth.signUpWithOtp({
+      // ✅ Send OTP using Supabase (handles both signup and login)
+      const { error } = await supabase.auth.signInWithOtp({
         email: formData.email,
       });
 

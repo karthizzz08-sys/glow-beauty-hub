@@ -105,15 +105,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       console.log('[Auth] Starting OTP registration for:', registerEmail);
 
-      // ✅ Create Supabase Auth user with OTP auth (no password)
-      console.log('[Auth] Creating OTP auth session...');
-      const { data: signUpData, error: signUpError } = await supabase.auth.signUpWithOtp({
+      // ✅ Send OTP using Supabase (handles both signup and login)
+      console.log('[Auth] Sending OTP...');
+      const { error: otpError } = await supabase.auth.signInWithOtp({
         email: registerEmail,
       });
 
-      if (signUpError) {
-        console.error('[Auth] ❌ Failed to create OTP auth:', signUpError.message);
-        throw new Error(`Failed to create OTP auth: ${signUpError.message}`);
+      if (otpError) {
+        console.error('[Auth] ❌ Failed to send OTP:', otpError.message);
+        throw new Error(`Failed to send OTP: ${otpError.message}`);
       }
 
       console.log('[Auth] ✓ OTP auth session created');
