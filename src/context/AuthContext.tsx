@@ -99,11 +99,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const register = async (registerEmail: string, fullName: string, phone: string) => {
-    try {
-      setError(null);
-      setLoading(true);
-      setEmail(registerEmail);
+    setError(null);
+    setLoading(true);
+    setEmail(registerEmail);
 
+    try {
       console.log('[Auth] Starting OTP registration for:', registerEmail);
 
       // Send OTP via Brevo (no Supabase Auth)
@@ -115,7 +115,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const errorMessage = err instanceof Error ? err.message : 'Registration failed';
       console.error('[Auth] Registration error:', errorMessage);
       setError(errorMessage);
-      throw err;
+      // Don't re-throw - let finally handle cleanup
     } finally {
       setLoading(false);
     }
@@ -167,10 +167,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const resendOTP = async (otpEmail: string) => {
-    try {
-      setError(null);
-      setLoading(true);
+    setError(null);
+    setLoading(true);
 
+    try {
       console.log('[Auth] Resending OTP to:', otpEmail);
 
       // Send OTP via Brevo
@@ -196,7 +196,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       setError(errorMessage);
-      throw new Error(errorMessage);
+      // Don't re-throw - let finally handle cleanup
     } finally {
       setLoading(false);
     }

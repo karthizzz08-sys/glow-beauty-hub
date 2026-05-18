@@ -88,8 +88,8 @@ export default function AuthLogin() {
             {/* Submit Button */}
             <Button
               type="submit"
-              disabled={loading}
-              className="w-full bg-maroon-600 hover:bg-maroon-700 text-white font-semibold py-3 rounded-lg mt-6"
+              disabled={loading || !formData.email}
+              className="w-full bg-maroon-600 hover:bg-maroon-700 text-white font-semibold py-3 rounded-lg mt-6 disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {loading ? 'Sending OTP...' : 'Send OTP'}
             </Button>

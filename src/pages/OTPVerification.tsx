@@ -78,14 +78,15 @@ export default function OTPVerification() {
   };
 
   const handleResendOtp = async () => {
-    if (isResending || resendTimer > 0) {
-      return; // Prevent multiple simultaneous requests
+    // Prevent multiple simultaneous requests
+    if (isResending || resendTimer > 0 || loading) {
+      return;
     }
 
+    setIsResending(true);
+    setOtpError('');
+
     try {
-      setIsResending(true);
-      setOtpError('');
-      
       await resendOTP(email);
       
       // Set 60-second countdown timer after successful resend
@@ -162,7 +163,7 @@ export default function OTPVerification() {
             <Button
               type="submit"
               disabled={isVerifying || loading || otp.length !== 6}
-              className="w-full bg-maroon-600 hover:bg-maroon-700 text-white font-semibold py-3 rounded-lg"
+              className="w-full bg-maroon-600 hover:bg-maroon-700 text-white font-semibold py-3 rounded-lg disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {isVerifying ? 'Verifying...' : 'Verify OTP'}
             </Button>
@@ -180,7 +181,7 @@ export default function OTPVerification() {
             ) : (
               <button
                 onClick={handleResendOtp}
-                disabled={isResending || resendTimer > 0}
+                disabled={isResending || resendTimer > 0 || loading}
                 className="inline-flex items-center gap-2 text-maroon-600 font-semibold hover:text-maroon-700 disabled:text-gray-400 disabled:cursor-not-allowed transition"
               >
                 <RotateCcw className="w-4 h-4" />
