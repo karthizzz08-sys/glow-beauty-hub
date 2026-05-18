@@ -111,35 +111,29 @@ export default function ProfileSetup() {
       setLoading(true);
       setError('');
 
-      console.log('[Auth Flow] ========== STARTING PROFILE CREATION WITH OTP SESSION ==========');
+      console.log('[Profile Setup] ========== STARTING PROFILE CREATION ==========');
 
-      // ✅ STEP 1: Get authenticated session from OTP verification
-      console.log('[Auth Flow] STEP 1: Getting authenticated session from OTP verification...');
+      // ✅ STEP 1: Verify user is authenticated via OTP verification
+      console.log('[Profile Setup] STEP 1: Checking authentication status...');
       
-      const { data } = await supabase.auth.getSession();
-      
-      if (!data?.session?.user?.id) {
-        console.error('[Auth Flow] ❌ No authenticated session found');
-        throw new Error('OTP verification failed. Please verify your email again.');
+      const authenticatedUserId = user?.id || sessionStorage.getItem('authenticated_user_id');
+      const authenticatedEmail = user?.email || registeredEmail;
+
+      if (!authenticatedUserId || !authenticatedEmail) {
+        console.error('[Profile Setup] ❌ No authenticated user found');
+        throw new Error('Authentication required. Please verify your email first.');
       }
 
-      const userId = data.session.user.id;
-      const userEmail = data.session.user.email;
-
-      if (!userEmail) {
-        throw new Error('Email not found in authenticated session.');
-      }
-
-      console.log('[Auth Flow] ✓ Step 1 Complete: Session retrieved from OTP verification');
-      console.log('[Auth Flow] User ID from session:', userId);
-      console.log('[Auth Flow] Email from session:', userEmail);
+      console.log('[Profile Setup] ✓ Step 1 Complete: User authenticated');
+      console.log('[Profile Setup] User ID:', authenticatedUserId);
+      console.log('[Profile Setup] Email:', authenticatedEmail);
 
       // ✅ STEP 2: Create user record in RLS-protected users table
-      console.log('[Auth Flow] STEP 2: Creating user record in users table...');
+      console.log('[Profile Setup] STEP 2: Creating user record in users table...');
       
       const userData: User = {
-        id: userId,
-        email: userEmail,
+        id: authenticatedUserId,
+        email: authenticatedEmail,
         full_name: profileData.full_name || '',
         phone_number: profileData.phone_number || '',
         verified: true,
@@ -147,26 +141,27 @@ export default function ProfileSetup() {
         created_at: new Date().toISOString(),
       };
 
-      console.log('[Auth Flow] Inserting user record:', {
+      console.log('[Profile Setup] Updating user record:', {
         id: userData.id,
         email: userData.email,
+        full_name: userData.full_name,
         verified: userData.verified,
       });
 
-      const { data: userCreatedResult, error: userError } = await userService.createUserProfile(userId, userData);
+      const { data: userCreatedResult, error: userError } = await userService.createUserProfile(authenticatedUserId, userData);
 
       if (userError) {
-        console.error('[Auth Flow] ❌ User insert failed');
-        console.error('[Auth Flow] Error:', userError.message);
+        console.error('[Profile Setup] ❌ User update failed');
+        console.error('[Profile Setup] Error:', userError.message);
         throw new Error(`Failed to create user profile: ${userError.message}`);
       }
 
-      console.log('[Auth Flow] ✓ Step 2 Complete: User record created successfully');
+      console.log('[Profile Setup] ✓ Step 2 Complete: User record created successfully');
 
       // ✅ Create matrimony profile
-      console.log('[Auth Flow] STEP 3: Creating matrimony profile...');
+      console.log('[Profile Setup] STEP 3: Creating matrimony profile...');
       const profileDataToSave = {
-        user_id: userId,
+        user_id: authenticatedUserId,
         full_name: profileData.full_name,
         gender: profileData.gender,
         date_of_birth: profileData.date_of_birth,
@@ -191,33 +186,34 @@ export default function ProfileSetup() {
       const { data: profileCreated, error: profileError } = await matrimonyService.createProfile(profileDataToSave);
 
       if (profileError) {
-        console.error('[Auth Flow] ❌ Matrimony profile creation error:', profileError.message);
+        console.error('[Profile Setup] ❌ Matrimony profile creation error:', profileError.message);
         throw new Error(`Failed to save matrimony profile: ${profileError.message}`);
       }
 
-      console.log('[Auth Flow] ✓ Step 3 Complete: Matrimony profile created successfully');
+      console.log('[Profile Setup] ✓ Step 3 Complete: Matrimony profile created successfully');
 
       // ✅ Update context with authenticated user
-      console.log('[Auth Flow] STEP 4: Updating authentication context...');
+      console.log('[Profile Setup] STEP 4: Updating authentication context...');
       setUser(userData);
-      console.log('[Auth Flow] ✓ Step 4 Complete: User set in context');
+      console.log('[Profile Setup] ✓ Step 4 Complete: User set in context');
 
       // ✅ Clean up OTP verification state
-      console.log('[Auth Flow] STEP 5: Cleaning up temporary state...');
+      console.log('[Profile Setup] STEP 5: Cleaning up temporary state...');
       sessionStorage.removeItem('verified_email');
       sessionStorage.removeItem('otp_verified');
-      console.log('[Auth Flow] ✓ Step 5 Complete: Session storage cleaned');
+      sessionStorage.removeItem('authenticated_user_id');
+      console.log('[Profile Setup] ✓ Step 5 Complete: Session storage cleaned');
 
-      console.log('[Auth Flow] ========== ✅ PROFILE SETUP COMPLETE ==========');
-      console.log('[Auth Flow] Summary:');
-      console.log('[Auth Flow]  ✓ OTP already verified');
-      console.log('[Auth Flow]  ✓ Session active from OTP');
-      console.log('[Auth Flow]  ✓ Email:', userEmail);
-      console.log('[Auth Flow]  ✓ User ID:', userId);
-      console.log('[Auth Flow]  ✓ User record: Created');
-      console.log('[Auth Flow]  ✓ Matrimony profile: Created');
-      console.log('[Auth Flow]  ✓ Auth context: Updated');
-      console.log('[Auth Flow] Redirecting to dashboard...');
+      console.log('[Profile Setup] ========== ✅ PROFILE SETUP COMPLETE ==========');
+      console.log('[Profile Setup] Summary:');
+      console.log('[Profile Setup]  ✓ OTP already verified');
+      console.log('[Profile Setup]  ✓ Session active from OTP');
+      console.log('[Profile Setup]  ✓ Email:', authenticatedEmail);
+      console.log('[Profile Setup]  ✓ User ID:', authenticatedUserId);
+      console.log('[Profile Setup]  ✓ User record: Created');
+      console.log('[Profile Setup]  ✓ Matrimony profile: Created');
+      console.log('[Profile Setup]  ✓ Auth context: Updated');
+      console.log('[Profile Setup] Redirecting to dashboard...');
 
       // ✅ Redirect to dashboard
       setTimeout(() => {
@@ -225,9 +221,9 @@ export default function ProfileSetup() {
       }, 500);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to complete registration';
-      console.error('[Auth Flow] ========== ❌ REGISTRATION FAILED ==========');
-      console.error('[Auth Flow] Error:', errorMsg);
-      console.error('[Auth Flow] Full error object:', err);
+      console.error('[Profile Setup] ========== ❌ REGISTRATION FAILED ==========');
+      console.error('[Profile Setup] Error:', errorMsg);
+      console.error('[Profile Setup] Full error object:', err);
       setError(errorMsg);
     } finally {
       setLoading(false);

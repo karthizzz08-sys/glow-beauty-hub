@@ -132,35 +132,64 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error('Email not found. Please start registration again.');
       }
 
-      console.log('[OTP Verify] Step 1: Verifying OTP for email:', email);
+      console.log('[OTP Verify] ========== STARTING OTP VERIFICATION VIA BACKEND ==========');
+      console.log('[OTP Verify] Step 1: Calling backend API to verify OTP...');
 
-      // ✅ Verify OTP from database
-      const { data: otpRecord, error: otpError } = await otpService.verifyOTP(email, otp);
+      // ✅ STEP 1: Call backend API to verify OTP and create Supabase user
+      const apiUrl = import.meta.env.VITE_API_URL || '/api/verify-otp';
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: email,
+          otp: otp,
+          fullName: email.split('@')[0], // Fallback to email prefix
+        }),
+      });
 
-      if (otpError || !otpRecord) {
-        const errorMsg = otpError instanceof Error ? otpError.message : 'Invalid OTP. Please check and try again.';
-        console.error('[OTP Verify] OTP verification failed:', errorMsg);
+      if (!response.ok) {
+        const errorData = await response.json();
+        const errorMsg = errorData.error || 'OTP verification failed. Please try again.';
+        console.error('[OTP Verify] Backend error:', errorMsg);
         throw new Error(errorMsg);
       }
 
-      console.log('[OTP Verify] Step 2: OTP verified successfully');
+      const result = await response.json();
 
-      // ✅ Mark OTP as verified in database
-      await otpService.markOTPAsVerified(otpRecord.id);
-      console.log('[OTP Verify] Step 3: OTP marked as verified in database');
+      if (!result.success || !result.user) {
+        throw new Error('OTP verification failed. Please try again.');
+      }
 
-      // ✅ Create Supabase Auth user using Admin API (backend will do this)
-      console.log('[OTP Verify] Step 4: User will be created via backend admin API');
+      console.log('[OTP Verify] ✓ Step 1 Complete: OTP verified by backend');
+      console.log('[OTP Verify] User ID:', result.user.id);
+      console.log('[OTP Verify] Email:', result.user.email);
 
-      // ✅ Store email in session for profile setup
-      sessionStorage.setItem('verified_email', email);
+      // ✅ STEP 2: Update context with authenticated user
+      console.log('[OTP Verify] Step 2: Setting up authenticated session...');
+      
+      const authenticatedUser: User = {
+        id: result.user.id,
+        email: result.user.email,
+        full_name: result.user.full_name,
+        phone_number: '',
+        verified: true,
+        user_type: 'matrimony',
+        created_at: new Date().toISOString(),
+      };
+
+      setUser(authenticatedUser);
+      setEmail(result.user.email);
+
+      // ✅ STEP 3: Store in session storage for persistence
+      sessionStorage.setItem('verified_email', result.user.email);
       sessionStorage.setItem('otp_verified', 'true');
-      console.log('[OTP Verify] Step 5: Email & OTP status stored in session');
+      sessionStorage.setItem('authenticated_user_id', result.user.id);
+      console.log('[OTP Verify] ✓ Step 2 Complete: Session data stored');
 
-      // ✅ Update context email
-      setEmail(email);
-      console.log('[OTP Verify] ✓ Context updated');
       console.log('[OTP Verify] ========== ✅ OTP VERIFICATION COMPLETE ==========');
+      console.log('[OTP Verify] User is now authenticated and ready for profile setup');
 
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'OTP verification failed';
