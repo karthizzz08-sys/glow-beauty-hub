@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { MapPin, Briefcase, X, CheckCircle, Clock, Mail, Phone } from 'lucide-react';
 import { Button } from '../components/ui/button';
-import { communityMembersService, supabase } from '../services/supabase';
+import { communityMembersService, otpService } from '../services/supabase';
+import { brevoOTPService } from '../services/brevoOTP';
 import { CITIES } from '../constants';
 
 interface CommunityMember {
@@ -113,14 +114,8 @@ export default function SangamDirectory() {
       setOtpSending(true);
       setOtpError('');
       
-      // ✅ Send OTP using Supabase (handles both signup and login)
-      const { error } = await supabase.auth.signInWithOtp({
-        email: formData.email,
-      });
-
-      if (error) {
-        throw new Error(error.message || 'Failed to send OTP');
-      }
+      // ✅ Send OTP via Brevo
+      await brevoOTPService.sendOTP(formData.email, formData.name);
       
       setRegistrationStep('otp-verification');
       setOtpTimer(300);
@@ -145,17 +140,16 @@ export default function SangamDirectory() {
       setRegistrationLoading(true);
       setOtpError('');
 
-      // ✅ Verify OTP using Supabase auth
-      const { data, error: verifyError } = await supabase.auth.verifyOtp({
-        email: formData.email,
-        token: otp,
-        type: 'email',
-      });
+      // ✅ Verify OTP from database
+      const { data: otpRecord, error: otpError } = await otpService.verifyOTP(formData.email, otp);
 
-      if (verifyError || !data?.session?.user?.id) {
+      if (otpError || !otpRecord) {
         setOtpError('Invalid OTP. Please try again.');
         return;
       }
+
+      // ✅ Mark OTP as verified
+      await otpService.markOTPAsVerified(otpRecord.id);
 
       const { data: memberData, error: createError } = await communityMembersService.createMember(formData);
 
@@ -196,15 +190,8 @@ export default function SangamDirectory() {
       setOtpSending(true);
       setOtpError('');
       
-      // ✅ Resend OTP using Supabase auth
-      const { error } = await supabase.auth.resendOtp({
-        email: formData.email,
-        type: 'email',
-      });
-
-      if (error) {
-        throw new Error(error.message || 'Failed to resend OTP');
-      }
+      // ✅ Resend OTP via Brevo
+      await brevoOTPService.sendOTP(formData.email, formData.name);
       
       setOtpTimer(300);
       setOtp('');

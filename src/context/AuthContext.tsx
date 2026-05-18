@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from '../types';
-import { userService, supabase } from '../services/supabase';
+import { userService, supabase, otpService } from '../services/supabase';
+import { brevoOTPService } from '../services/brevoOTP';
 
 interface AuthContextType {
   user: User | null;
@@ -105,26 +106,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       console.log('[Auth] Starting OTP registration for:', registerEmail);
 
-      // ✅ Send OTP using Supabase (handles both signup and login)
-      console.log('[Auth] Sending OTP...');
-      const { error: otpError } = await supabase.auth.signInWithOtp({
-        email: registerEmail,
-      });
+      // ✅ Send OTP via Brevo email
+      console.log('[Auth] Sending OTP via Brevo...');
+      await brevoOTPService.sendOTP(registerEmail, fullName);
 
-      if (otpError) {
-        console.error('[Auth] ❌ Failed to send OTP:', otpError.message);
-        throw new Error(`Failed to send OTP: ${otpError.message}`);
-      }
-
-      console.log('[Auth] ✓ OTP auth session created');
-      console.log('[Auth] OTP sent successfully, ready for verification');
+      console.log('[Auth] ✓ OTP sent successfully via Brevo');
+      console.log('[Auth] User ready for OTP verification');
       setIsOTPSent(true);
 
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Registration failed';
       console.error('[Auth] Registration error:', errorMessage);
       setError(errorMessage);
-      // Don't re-throw - let finally handle cleanup
     } finally {
       setLoading(false);
     }
@@ -141,34 +134,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       console.log('[OTP Verify] Step 1: Verifying OTP for email:', email);
 
-      // ✅ Verify OTP using Supabase auth - this creates an authenticated session
-      const { data, error: verifyError } = await supabase.auth.verifyOtp({
-        email,
-        token: otp,
-        type: 'email',
-      });
+      // ✅ Verify OTP from database
+      const { data: otpRecord, error: otpError } = await otpService.verifyOTP(email, otp);
 
-      if (verifyError) {
-        const errorMsg = verifyError.message || 'Invalid OTP. Please check and try again.';
+      if (otpError || !otpRecord) {
+        const errorMsg = otpError instanceof Error ? otpError.message : 'Invalid OTP. Please check and try again.';
         console.error('[OTP Verify] OTP verification failed:', errorMsg);
         throw new Error(errorMsg);
       }
 
-      if (!data?.session?.user?.id) {
-        console.error('[OTP Verify] ❌ No session created after OTP verification');
-        throw new Error('Failed to create authenticated session');
-      }
-
       console.log('[OTP Verify] Step 2: OTP verified successfully');
-      console.log('[OTP Verify] ✓ Authenticated session created');
-      console.log('[OTP Verify] User ID:', data.session.user.id);
 
-      // ✅ Persist email for profile setup
+      // ✅ Mark OTP as verified in database
+      await otpService.markOTPAsVerified(otpRecord.id);
+      console.log('[OTP Verify] Step 3: OTP marked as verified in database');
+
+      // ✅ Create Supabase Auth user using Admin API (backend will do this)
+      console.log('[OTP Verify] Step 4: User will be created via backend admin API');
+
+      // ✅ Store email in session for profile setup
       sessionStorage.setItem('verified_email', email);
       sessionStorage.setItem('otp_verified', 'true');
-      console.log('[OTP Verify] Step 3: Email & OTP status stored in session');
+      console.log('[OTP Verify] Step 5: Email & OTP status stored in session');
 
-      // ✅ Update context email to ensure consistency
+      // ✅ Update context email
       setEmail(email);
       console.log('[OTP Verify] ✓ Context updated');
       console.log('[OTP Verify] ========== ✅ OTP VERIFICATION COMPLETE ==========');
@@ -190,18 +179,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       console.log('[Auth] Resending OTP to:', otpEmail);
 
-      // ✅ Resend OTP using Supabase auth
-      const { error: resendError } = await supabase.auth.resendOtp({
-        email: otpEmail,
-        type: 'email',
-      });
-
-      if (resendError) {
-        throw new Error(resendError.message || 'Failed to resend OTP');
-      }
-
+      // ✅ Resend OTP via Brevo
+      await brevoOTPService.sendOTP(otpEmail);
       setIsOTPSent(true);
-      console.log('[Auth] OTP resent successfully');
+
+      console.log('[Auth] ✓ OTP resent successfully via Brevo');
     } catch (err) {
       let errorMessage = err instanceof Error ? err.message : 'Failed to resend OTP';
 
@@ -212,15 +194,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } else if (errorMessage.includes('email rate limit')) {
         errorMessage = 'Email service rate limit exceeded. Please wait before requesting another OTP.';
         console.error('[Auth] Email rate limit error:', err);
-      } else if (errorMessage.includes('Invalid') || errorMessage.includes('not found')) {
-        errorMessage = 'Email not found. Please start registration again.';
-        console.error('[Auth] Email not found error:', err);
+      } else if (errorMessage.includes('Database error') || errorMessage.includes('already exists')) {
+        errorMessage = 'Failed to resend OTP. Please try again.';
+        console.error('[Auth] Database error:', err);
       } else {
         console.error('[Auth] Resend error:', err);
       }
 
       setError(errorMessage);
-      // Don't re-throw - let finally handle cleanup
     } finally {
       setLoading(false);
     }
