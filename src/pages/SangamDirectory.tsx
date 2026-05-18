@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { MapPin, Briefcase, X, CheckCircle, Clock, Mail, Phone } from 'lucide-react';
 import { Button } from '../components/ui/button';
-import { communityMembersService, otpService } from '../services/supabase';
-import { brevoOTPService } from '../services/brevoOTP';
+import { communityMembersService, supabase } from '../services/supabase';
 import { CITIES } from '../constants';
 
 interface CommunityMember {
@@ -114,7 +113,14 @@ export default function SangamDirectory() {
       setOtpSending(true);
       setOtpError('');
       
-      await brevoOTPService.sendOTP(formData.email, formData.name);
+      // ✅ Use Supabase OTP auth instead of Brevo
+      const { error } = await supabase.auth.signUpWithOtp({
+        email: formData.email,
+      });
+
+      if (error) {
+        throw new Error(error.message || 'Failed to send OTP');
+      }
       
       setRegistrationStep('otp-verification');
       setOtpTimer(300);
@@ -139,21 +145,24 @@ export default function SangamDirectory() {
       setRegistrationLoading(true);
       setOtpError('');
 
-      const { data: otpData } = await otpService.verifyOTP(formData.email, otp);
+      // ✅ Verify OTP using Supabase auth
+      const { data, error: verifyError } = await supabase.auth.verifyOtp({
+        email: formData.email,
+        token: otp,
+        type: 'email',
+      });
 
-      if (!otpData) {
+      if (verifyError || !data?.session?.user?.id) {
         setOtpError('Invalid OTP. Please try again.');
         return;
       }
 
-      const { data, error } = await communityMembersService.createMember(formData);
+      const { data: memberData, error: createError } = await communityMembersService.createMember(formData);
 
-      if (error) {
-        setOtpError(error.message || 'Failed to register');
+      if (createError) {
+        setOtpError(createError.message || 'Failed to register');
         return;
       }
-
-      await otpService.markOTPAsVerified(otpData.id);
 
       setSuccessMessage('Successfully registered in community directory!');
       setRegistrationStep('success');
@@ -187,7 +196,15 @@ export default function SangamDirectory() {
       setOtpSending(true);
       setOtpError('');
       
-      await brevoOTPService.sendOTP(formData.email, formData.name);
+      // ✅ Resend OTP using Supabase auth
+      const { error } = await supabase.auth.resendOtp({
+        email: formData.email,
+        type: 'email',
+      });
+
+      if (error) {
+        throw new Error(error.message || 'Failed to resend OTP');
+      }
       
       setOtpTimer(300);
       setOtp('');
